@@ -295,7 +295,11 @@ class CodeGenerator(Visitor):
 
     def visitFunctionValue(self, node: FunctionValue, ctx: Context):
         if node.value == "random":
-            func_str = "rand::random::<f32>()"
+            func_str = RustGlobalFunctions["random_f64"]
+        elif node.value == "cur_ts":
+            func_str = RustGlobalFunctions["cur_ts"]
+        elif node.value == "time_diff":
+            func_str = RustGlobalFunctions["time_diff"]
         else:
             raise NotImplementedError
 

@@ -36,19 +36,28 @@ column_definition: column_name data_type [length]
 
 value_list: "(" value ("," value)* ")"
 
-assignment: identifier "=" value
+assignment: identifier "=" expression
+
+expression: expression "+" expression -> add_expreesion
+         | expression "-" expression -> sub_expression
+         | expression "*" expression -> mul_expression
+         | expression "/" expression -> div_expression
+         | "-" expression -> neg
+         | "(" expression ")"
+         | value 
 
 data_type: CNAME
 
 length: "(" NUMBER ")"
 
-value: function -> function
+value: CNAME parameters -> function
      | column_name
      | table_name "." CNAME -> column_field
      | NUMBER -> number
      | CNAME -> cname
      | quoted_string -> string
 
+parameters: "(" [value ("," value)*] ")"
 
 column_name: "*" -> all | CNAME -> cname
 
@@ -69,8 +78,6 @@ comparison_operator: "=" -> eq
                    | ">" -> g
                    | "<=" -> le
                    | ">=" -> ge
-
-function: "random()" -> random_func
 
 quoted_string: /'[^']*'/
 

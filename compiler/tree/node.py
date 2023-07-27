@@ -50,9 +50,10 @@ class NumberValue(Value):
 
 
 class FunctionValue(Value):
-    def __init__(self, func_name: str):
+    def __init__(self, func_name: str, parameters: List[Value]):
         super().__init__()
         self.value = func_name
+        self.parameters = parameters
 
 
 class VariableValue(Value):
@@ -167,6 +168,12 @@ class CompareOp(Operator):
 class LogicalOp(Operator):
     AND = 1
     OR = 2
+    
+class ArithmeticOp(Operator):
+    ADD = 1
+    SUB = 2
+    MUL = 3
+    DIV = 4
 
 
 class SearchCondition(Node):
@@ -223,3 +230,11 @@ class SetStatement(Statement):
         self.variable = variable
         self.value = value
         self.variable.data_type = self.value.data_type
+        
+class Expression(Value):
+    def __init__(self, lvalue: Expression or Value, rvalue: Expression or Value, operator: Operator):
+        self.lvalue = lvalue
+        self.rvalue = rvalue
+        self.operator = operator
+        self.value = None
+        

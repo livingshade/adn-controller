@@ -72,6 +72,21 @@ class ADNTransformer(Transformer):
         # print("assignment", n)
         return res
 
+    def expression(self, e):
+        return e[0]
+    
+    def add_expression(self, e):
+        return Expression(e[0], e[2], Operator.ADD)
+
+    def sub_expression(self, e):
+        return Expression(e[0], e[2], Operator.SUB)
+    
+    def mul_expression(self, e):
+        return Expression(e[0], e[2], Operator.MUL)
+    
+    def div_expression(self, e):
+        return Expression(e[0], e[2], Operator.DIV)
+
     def data_type(self, d):
         (d,) = d
         # print("data_type", d)
@@ -141,8 +156,13 @@ class ADNTransformer(Transformer):
     def random_func(self, r):
         return "random"
 
+    def parameters(self, p):
+        print("parameters", p)
+        return p
+
     def function(self, f):
-        return FunctionValue(f[0])
+        print(f)
+        return FunctionValue(f[0], f[1])
 
     def comparison_condition(self, c):
         return SearchCondition(c[0], c[2], c[1])
