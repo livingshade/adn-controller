@@ -164,7 +164,6 @@ class CompareOp(Operator):
     LE = 5
     NEQ = 6
 
-
 class LogicalOp(Operator):
     AND = 1
     OR = 2
@@ -215,6 +214,8 @@ class SelectStatement(Statement):
         to_table: str,
         join_clause: JoinClause,
         where_clause: WhereClause,
+        aggregator: Aggregator,
+        limit: Value,
     ):
         super().__init__()
         self.columns = columns
@@ -222,6 +223,8 @@ class SelectStatement(Statement):
         self.to_table = to_table
         self.join_clause = join_clause
         self.where_clause = where_clause
+        self.aggregator = aggregator
+        self.limit = limit
 
 
 class SetStatement(Statement):
@@ -237,4 +240,16 @@ class Expression(Value):
         self.rvalue = rvalue
         self.operator = operator
         self.value = None
+        assert(self.lvalue.data_type == self.rvalue.data_type)
+        self.data_type = self.lvalue.data_type
         
+
+class Aggregator(Operator):
+    COUNT = 1
+    SUM = 2
+    AVG = 3
+    MIN = 4
+    MAX = 5
+    
+
+    
