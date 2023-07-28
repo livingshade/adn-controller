@@ -69,7 +69,7 @@ def retrieve_info(ctx: Context):
             [f"{i}," for i in ctx.gen_var_names()]
         ),
         "InternalStatesInStructDefinition": "\n".join(
-            [f"pub(crate) {i}" for i in ctx.gen_struct_declaration()]
+            [f"pub(crate) {i}," for i in ctx.gen_struct_declaration()]
         ),
         "OnTxRpc": "".join(ctx.process_code),
         "OnRxRpc": r"""// todo """,

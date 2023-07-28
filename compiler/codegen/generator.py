@@ -22,6 +22,19 @@ class RustTypeGenerator(Visitor):
     def visitStringValue(self, node: StringValue, ctx=None) -> RustType:
         val = node.value.replace("\'", "")
         return RustBasicType("String", f"String::from(\"{val}\")")
+    
+    def visitFunctionValue(self, node: FunctionValue, ctx=None) -> RustType:
+        if node.value == "RANDOM":
+            return RustBasicType("f32", "")
+        elif node.value == "CUR_TS":
+            return RustBasicType("Instant", "")
+        elif node.value == "TIME_DIFF":
+            return RustBasicType("Instant", "")
+        elif node.value == "MIN":
+            return RustBasicType("f64", "")
+        else:
+            print("Function not implemented:", node.value)
+            raise NotImplementedError
 
 class CodeGenerator(Visitor):
     def __init__(self):
@@ -31,6 +44,7 @@ class CodeGenerator(Visitor):
     def visitRoot(self, node: List[Statement], ctx: Context) -> None:
         for statement in node:
             try:
+                print("visitRoot", statement)
                 statement.accept(self, ctx)
             except Exception as e:
                 print(statement)
@@ -285,22 +299,36 @@ class CodeGenerator(Visitor):
 
     def visitSetStatement(self, node: SetStatement, ctx: Context):
         var_name = node.variable.value
-        ctx.rust_vars.update(
-            {
-                var_name: RustVariable(
-                    var_name, node.value.accept(self.type_generator, None), False
-                )
-            }
-        )
+        data_type = node.expr.accept(self.type_generator, None)
+        node.expr.accept(self, ctx)
+        expr = ctx.pop_code()
+        if ctx.rust_vars.get(var_name) is None:    
+            ctx.rust_vars.update(
+                {
+                    var_name: RustVariable(
+                        var_name, data_type, False, expr, None
+                    )
+                }
+            )
+        else:
+            ctx.push_code(f"self.{var_name} = {expr};")
 
     def visitFunctionValue(self, node: FunctionValue, ctx: Context):
-        if node.value == "random":
-            func_str = RustGlobalFunctions["random_f64"]
-        elif node.value == "cur_ts":
-            func_str = RustGlobalFunctions["cur_ts"]
-        elif node.value == "time_diff":
-            func_str = RustGlobalFunctions["time_diff"]
+        paras = []
+        for para in node.parameters:
+            para.accept(self, ctx)
+            paras.append(ctx.pop_code())
+        print("visitFunctionValue", node.value, paras)
+        if node.value == "RANDOM":
+            func_str = RustGlobalFunctions["random_f64"].gen_call(paras)
+        elif node.value == "CUR_TS":
+            func_str = RustGlobalFunctions["cur_ts"].gen_call(paras)
+        elif node.value == "TIME_DIFF":
+            func_str = RustGlobalFunctions["time_diff"].gen_call(paras)
+        elif node.value == "MIN":
+            func_str = RustGlobalFunctions["min"].gen_call(paras)
         else:
+            print("Function not implemented:", node.value)
             raise NotImplementedError
 
         ctx.push_code(func_str)
@@ -345,6 +373,10 @@ class CodeGenerator(Visitor):
         code = node.value.replace("\'", "")
         ctx.push_code(f"String::from(\"{code}\")")
         
+    def visitNumberValue(self, node: NumberValue, ctx: Context):
+        code = node.value
+        ctx.push_code(f"{code}")    
+        
     def visitLogicalOp(self, node: LogicalOp, ctx: Context):
         if node == LogicalOp.AND:
             op_str = "&&"
@@ -371,6 +403,19 @@ class CodeGenerator(Visitor):
             raise NotImplementedError
 
         ctx.push_code(op_str)
+        
+    def visitArithmeticOp(self, node: ArithmeticOp, ctx: Context):
+        if node == ArithmeticOp.ADD:
+            op_str = "+"
+        elif node == ArithmeticOp.SUB:
+            op_str = "-"
+        elif node == ArithmeticOp.MUL:
+            op_str = "*"
+        elif node == ArithmeticOp.DIV:
+            op_str = "/"
+        else:
+            raise NotImplementedError
+        ctx.push_code(op_str)
 
     def visitSearchCondition(self, node: SearchCondition, ctx: Context):
         node.lvalue.accept(self, ctx)
@@ -383,6 +428,17 @@ class CodeGenerator(Visitor):
         if isinstance(node.operator, LogicalOp):
             lvalue_str = "(" + lvalue_str + ")"
             rvalue_str = "(" + rvalue_str + ")"
+
+        cond_str = f"{lvalue_str} {op_str} {rvalue_str}"
+        ctx.push_code(cond_str)
+        
+    def visitExpression(self, node: Expression, ctx: Context):
+        node.lvalue.accept(self, ctx)
+        lvalue_str = ctx.pop_code()
+        node.rvalue.accept(self, ctx)
+        rvalue_str = ctx.pop_code()
+        node.operator.accept(self, ctx)
+        op_str = ctx.pop_code()
 
         cond_str = f"{lvalue_str} {op_str} {rvalue_str}"
         ctx.push_code(cond_str)

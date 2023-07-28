@@ -228,11 +228,11 @@ class SelectStatement(Statement):
 
 
 class SetStatement(Statement):
-    def __init__(self, variable: VariableValue, value: Value):
+    def __init__(self, variable: VariableValue, expr: Expression):
         super().__init__()
         self.variable = variable
-        self.value = value
-        self.variable.data_type = self.value.data_type
+        self.expr = expr
+        self.variable.data_type = self.expr.data_type
         
 class Expression(Value):
     def __init__(self, lvalue: Expression or Value, rvalue: Expression or Value, operator: Operator):

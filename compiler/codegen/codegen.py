@@ -274,7 +274,8 @@ def init_ctx() -> Context:
     )
     ret = Context([InputTable, OutputTable], [input_vec, output_vec], HelloProto)
     ret.def_code += ret.proto.gen_readonly_def()
-
+    for _, func in RustGlobalFunctions.items():
+        ret.def_code.append(func.gen_def())
     return ret
     # def init_ctx():
     return {

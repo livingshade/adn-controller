@@ -100,7 +100,7 @@ class Printer(Visitor):
         return '; '.join(res)
 
     def visitSetStatement(self, node: SetStatement, ctx: int) -> str:
-        res = ["SetStatement", f"    {node.variable.accept(self, 0)} = {node.value.accept(self, 0)}"]
+        res = ["SetStatement", f"    {node.variable.accept(self, 0)} = {node.expr.accept(self, 0)}"]
         return add_indent(res, ctx)
 
     def visitJoinClause(self, node: JoinClause, ctx: int) -> str:

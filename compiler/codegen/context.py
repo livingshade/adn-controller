@@ -64,8 +64,8 @@ class Context:
             print("\t", i.name)
             if i.parent is not None:
                 print("\t\t", i.parent.name)
-            print("\t\t", i.type)
-            print("\t\t", i.init)
+            print("\t\ttype:", i.type)
+            print("\t\tinit_val:", i.init)
 
     def gen_struct_names(self) -> List[str]:
         ret = []
