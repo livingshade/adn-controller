@@ -44,7 +44,7 @@ class CodeGenerator(Visitor):
     def visitRoot(self, node: List[Statement], ctx: Context) -> None:
         for statement in node:
             try:
-                print("visitRoot", statement)
+                #print("visitRoot", statement)
                 statement.accept(self, ctx)
             except Exception as e:
                 print(statement)
