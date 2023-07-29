@@ -42,11 +42,12 @@ class Context:
             self._tables[i.name] = i
         self._sql_vars = {}
         self._rust_vars = {}
+        self._temp_vars = {}
         self.is_forward = False
         self.proto = proto
         self.name_mapping: Dict[str, str] = {}
         self.current: str = "init"
-
+        self.global_func = None
     def explain(self):
         print("Context.Explain:")
         print("Tables:")
@@ -95,6 +96,12 @@ class Context:
             ret.append(i.gen_init_localvar())
         return ret
 
+    def gen_init_tempvar(self) -> List[str]:
+        ret = []
+        for i in self.temp_vars.values():
+            ret.append(i.gen_init_localvar())
+        return ret
+
     def gen_struct_declaration(self) -> List[str]:
         ret = []
         for i in self.rust_vars.values():
@@ -105,6 +112,15 @@ class Context:
             ret.append(i.gen_struct_declaration())
         return ret
 
+    def gen_global_function_includes(self) -> str:
+        prefix = "use crate::engine::{"
+        middle = ""
+        for k,v in self.global_func.items():
+            name = v.name
+            middle += f"{name},"
+        suffix = "};"
+        return prefix + middle + suffix
+    
     def empty(self) -> bool:
         return len(self._temp_code) == 0
 
@@ -114,6 +130,14 @@ class Context:
     def pop_code(self) -> str:
         assert(not self.empty())
         return self._temp_code.pop()
+
+    @property
+    def temp_vars(self) -> Dict[str, BackendVariable]:
+        return self._temp_vars
+    
+    @temp_vars.setter
+    def temp_vars(self, value: Dict[str, BackendVariable]):
+        self._temp_vars = value
 
     @property
     def def_code(self) -> List[str]:

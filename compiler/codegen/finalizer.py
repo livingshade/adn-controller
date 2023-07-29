@@ -48,6 +48,8 @@ fn {proto}_request_name_readonly(req: &{proto}::{proto_fc}Request) -> String {{
 
 
 def retrieve_info(ctx: Context):
+    ctx.init_code = ctx.init_code[::-1]
+    ctx.process_code = ctx.process_code[::-1]
     proto = "hello"
     proto_fc = "Hello"
     info = {
@@ -58,6 +60,7 @@ def retrieve_info(ctx: Context):
         """,
         "ProtoRpcRequestType": f"{proto}::{proto_fc}Request",
         "ProtoRpcResponseType": f"{proto}::{proto_fc}Response",
+        "GlobalFunctionInclude": ctx.gen_global_function_includes(),
         "InternalStatesDefinition": "\n".join(ctx.def_code),
         "InternalStatesDeclaration": "\n".join(
             [f"use crate::engine::{i};" for i in ctx.gen_struct_names()]

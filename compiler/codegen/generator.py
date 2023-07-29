@@ -31,7 +31,7 @@ class RustTypeGenerator(Visitor):
         elif node.value == "TIME_DIFF":
             return RustBasicType("Instant", "")
         elif node.value == "MIN":
-            return RustBasicType("f64", "")
+            return RustBasicType("u32", "")
         else:
             print("Function not implemented:", node.value)
             raise NotImplementedError
@@ -194,6 +194,14 @@ class CodeGenerator(Visitor):
             table_to = ctx.tables[table_to_name]
             struct = table_to.struct
 
+        if node.aggregator is not None:
+            if node.aggregator == Aggregator.COUNT:
+                code = f"({vec_from}.len() as u32)"
+                ctx.push_code(code)
+                node.data_type = RustBasicType("u32")
+                return;
+
+
         result_rpc = f"{struct.name}::new({columns})"
         
         if ctx.is_forward:
@@ -207,6 +215,8 @@ class CodeGenerator(Visitor):
                                         ))"""
         else:
             send_logic = result_rpc
+
+
 
         prelude ="""let rpc_message = materialize_nocopy(&req);
             let conn_id = unsafe { &*req.meta_buf_ptr.as_meta_ptr() }.conn_id;
@@ -222,8 +232,11 @@ class CodeGenerator(Visitor):
         ctx.name_mapping["rpc"] = "rpc_message"
         ctx.name_mapping[table_from_name] = "req"
 
-        if join is not None:
-            
+        if node.limit is not None:
+            node.limit.accept(self, ctx)
+            limit = ctx.pop_code()
+            code = f"{vec_from}.iter().enumerate().map(|(i, req)| {{ {prelude}if i < {limit} as u64 as usize {{ {send_logic} }} else {{ {drop_logic} }} }}).collect()"
+        elif join is not None:  
             table_join = join.table_name
             if ctx.tables.get(table_join) is None:
                 raise ValueError("Table does not exist")
@@ -235,8 +248,6 @@ class CodeGenerator(Visitor):
             ctx.name_mapping[table_join] = "join"
             
             join.search_condition.accept(self, ctx)
-            
-            
             join_str = ctx.pop_code()
 
             # TODO! this is correct only if join is over all input rpcs, 
@@ -252,14 +263,12 @@ class CodeGenerator(Visitor):
             ctx.name_mapping.pop(table_join)
 
             code = f"iproduct!({vec_from}.iter(), {vec_join}.iter()).map(|(req, join)| {{ {prelude} {send_logic} }}).collect()"
-        else:
-
-            if where is not None:
+        elif where is not None:
                 where.search_condition.accept(self, ctx)
                 where_str = ctx.pop_code()
                 send_logic = f"if ({where_str}) {{ {send_logic} }} else {{ {drop_logic} }}"
-            else:
-                pass
+                code = f"{vec_from}.iter().map(|req| {{ {prelude} {send_logic} }}).collect()"
+        else:
             code = f"{vec_from}.iter().map(|req| {{ {prelude} {send_logic} }}).collect()"
 
         ctx.name_mapping.pop("rpc")
@@ -302,42 +311,59 @@ class CodeGenerator(Visitor):
         data_type = node.expr.accept(self.type_generator, None)
         node.expr.accept(self, ctx)
         expr = ctx.pop_code()
-        if ctx.rust_vars.get(var_name) is None:    
-            ctx.rust_vars.update(
-                {
+        if ctx.current == "init":
+            if ctx.rust_vars.get(var_name) is None:    
+                ctx.rust_vars.update({
                     var_name: RustVariable(
                         var_name, data_type, False, expr, None
                     )
-                }
-            )
+                })
+            else:
+                ctx.push_code(f"self.{var_name} = {expr};")
         else:
-            ctx.push_code(f"self.{var_name} = {expr};")
+            if ctx.rust_vars.get(var_name) is not None:
+                ctx.push_code(f"self.{var_name} = {expr};")
+            elif ctx.temp_vars.get(var_name) is None:
+                ctx.temp_vars.update({
+                    var_name: RustVariable(
+                        var_name, data_type, True, expr, None
+                    )
+                })
+                ctx.push_code(ctx.temp_vars[var_name].gen_init_localvar())
+            else:
+                ctx.push_code(f"{var_name} = {expr};")
+                    
 
     def visitFunctionValue(self, node: FunctionValue, ctx: Context):
         paras = []
         for para in node.parameters:
             para.accept(self, ctx)
             paras.append(ctx.pop_code())
-        print("visitFunctionValue", node.value, paras)
+        #print("visitFunctionValue", node.value, paras)
         if node.value == "RANDOM":
-            func_str = RustGlobalFunctions["random_f64"].gen_call(paras)
+            func = RustGlobalFunctions["random_f64"]
         elif node.value == "CUR_TS":
-            func_str = RustGlobalFunctions["cur_ts"].gen_call(paras)
+            func = RustGlobalFunctions["cur_ts"]
         elif node.value == "TIME_DIFF":
-            func_str = RustGlobalFunctions["time_diff"].gen_call(paras)
+            func = RustGlobalFunctions["time_diff"]
         elif node.value == "MIN":
-            func_str = RustGlobalFunctions["min"].gen_call(paras)
+            func = RustGlobalFunctions["min"]
         else:
             print("Function not implemented:", node.value)
             raise NotImplementedError
-
+        func_str = func.gen_call([p + ".into()" for p in paras])
+        node.data_type = func.ret
         ctx.push_code(func_str)
 
     def visitVariableValue(self, node: VariableValue, ctx: Context):
-        if ctx.rust_vars.get(node.value) is None:
+        if ctx.rust_vars.get(node.value) is not None:
+            var_str = f"self.{node.value}"
+            node.data_type = ctx.rust_vars[node.value].type
+        elif ctx.temp_vars.get(node.value) is not None:
+            var_str = node.value
+            node.data_type = ctx.temp_vars[node.value].type
+        else:
             raise Exception(f"Variable {node.value} does not exist")
-
-        var_str = f"self.{node.value}"
         ctx.push_code(var_str)
 
     def visitColumnValue(self, node: ColumnValue, ctx: Context):
@@ -371,10 +397,12 @@ class CodeGenerator(Visitor):
     
     def visitStringValue(self, node: StringValue, ctx: Context):
         code = node.value.replace("\'", "")
+        node.data_type = RustBasicType("String")
         ctx.push_code(f"String::from(\"{code}\")")
         
     def visitNumberValue(self, node: NumberValue, ctx: Context):
         code = node.value
+        node.data_type = RustBasicType("f64")
         ctx.push_code(f"{code}")    
         
     def visitLogicalOp(self, node: LogicalOp, ctx: Context):
@@ -439,6 +467,10 @@ class CodeGenerator(Visitor):
         rvalue_str = ctx.pop_code()
         node.operator.accept(self, ctx)
         op_str = ctx.pop_code()
+        
+        
+        cond_str = f"{lvalue_str} {op_str} ({rvalue_str} as {node.lvalue.data_type})"
 
-        cond_str = f"{lvalue_str} {op_str} {rvalue_str}"
+        
+        
         ctx.push_code(cond_str)

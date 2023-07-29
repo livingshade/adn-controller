@@ -1,6 +1,6 @@
 SET last_ts = CUR_TS();
-SET tokens = 1;
-SET token_per_sec = 1;
+SET tokens = 5;
+SET token_per_sec = 5;
 
 --processing--
 

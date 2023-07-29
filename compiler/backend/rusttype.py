@@ -160,9 +160,9 @@ class RustVariable(BackendVariable):
 
 RustGlobalFunctions = {
     "cur_ts": RustFunctionType("Gen_current_timestamp", [], RustBasicType("Instant"), "pub fn Gen_current_timestamp() -> Instant { Instant::now() }"),
-    "time_diff" : RustFunctionType("Gen_time_difference", [RustBasicType("Instant"), RustBasicType("Instant")], RustBasicType("f64"), "pub fn Gen_time_difference(a: Instant, b: Instant) -> f64 {(a - b).as_secs_f64()}"),
+    "time_diff" : RustFunctionType("Gen_time_difference", [RustBasicType("Instant"), RustBasicType("Instant")], RustBasicType("f32"), "pub fn Gen_time_difference(a: Instant, b: Instant) -> f32 {(a - b).as_secs_f64() as f32}"),
     "random_f64": RustFunctionType("Gen_random_f64", [], RustBasicType("f64"), "pub fn Gen_random_f64() -> f64 { rand::random::<f64>() }"),
-    "min": RustFunctionType("Gen_min", [RustBasicType("f64"), RustBasicType("f64")], RustBasicType("f64"), "pub fn Gen_min(a: f64, b: f64) -> f64 { a.min(b) }"),
+    "min": RustFunctionType("Gen_min", [RustBasicType("u64"), RustBasicType("u64")], RustBasicType("u32"), "pub fn Gen_min(a: u32, b: f32) -> u32 { (a as f32).min(b) as u32}"),
 }
 
 
