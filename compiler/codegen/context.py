@@ -48,6 +48,7 @@ class Context:
         self.name_mapping: Dict[str, str] = {}
         self.current: str = "init"
         self.global_func = None
+
     def explain(self):
         print("Context.Explain:")
         print("Tables:")
@@ -115,12 +116,12 @@ class Context:
     def gen_global_function_includes(self) -> str:
         prefix = "use crate::engine::{"
         middle = ""
-        for k,v in self.global_func.items():
+        for k, v in self.global_func.items():
             name = v.name
             middle += f"{name},"
         suffix = "};"
         return prefix + middle + suffix
-    
+
     def empty(self) -> bool:
         return len(self._temp_code) == 0
 
@@ -128,13 +129,13 @@ class Context:
         self._temp_code.append(code)
 
     def pop_code(self) -> str:
-        assert(not self.empty())
+        assert not self.empty()
         return self._temp_code.pop()
 
     @property
     def temp_vars(self) -> Dict[str, BackendVariable]:
         return self._temp_vars
-    
+
     @temp_vars.setter
     def temp_vars(self, value: Dict[str, BackendVariable]):
         self._temp_vars = value

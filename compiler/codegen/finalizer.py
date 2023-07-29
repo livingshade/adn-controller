@@ -65,8 +65,10 @@ def retrieve_info(ctx: Context):
         "InternalStatesDeclaration": "\n".join(
             [f"use crate::engine::{i};" for i in ctx.gen_struct_names()]
         ),
-        "InternalStatesOnBuild": "\n".join(ctx.gen_init_localvar()) +  "\n".join(ctx.init_code), 
-        "InternalStatesOnRestore": "\n".join(ctx.gen_init_localvar()) + "\n".join(ctx.init_code),
+        "InternalStatesOnBuild": "\n".join(ctx.gen_init_localvar())
+        + "\n".join(ctx.init_code),
+        "InternalStatesOnRestore": "\n".join(ctx.gen_init_localvar())
+        + "\n".join(ctx.init_code),
         "InternalStatesOnDecompose": "",
         "InternalStatesInConstructor": "\n".join(
             [f"{i}," for i in ctx.gen_var_names()]

@@ -164,10 +164,12 @@ class CompareOp(Operator):
     LE = 5
     NEQ = 6
 
+
 class LogicalOp(Operator):
     AND = 1
     OR = 2
-    
+
+
 class ArithmeticOp(Operator):
     ADD = 1
     SUB = 2
@@ -177,7 +179,10 @@ class ArithmeticOp(Operator):
 
 class SearchCondition(Node):
     def __init__(
-        self, lvalue: SearchCondition or Value, rvalue: SearchCondition or Value, operator: Operator
+        self,
+        lvalue: SearchCondition or Value,
+        rvalue: SearchCondition or Value,
+        operator: Operator,
     ):
         self.lvalue = lvalue
         self.rvalue = rvalue
@@ -233,16 +238,22 @@ class SetStatement(Statement):
         self.variable = variable
         self.expr = expr
         self.variable.data_type = self.expr.data_type
-        
+
+
 class Expression(Value):
-    def __init__(self, lvalue: Expression or Value, rvalue: Expression or Value, operator: Operator):
+    def __init__(
+        self,
+        lvalue: Expression or Value,
+        rvalue: Expression or Value,
+        operator: Operator,
+    ):
         self.lvalue = lvalue
         self.rvalue = rvalue
         self.operator = operator
         self.value = None
-        assert(self.lvalue.data_type == self.rvalue.data_type)
+        assert self.lvalue.data_type == self.rvalue.data_type
         self.data_type = self.lvalue.data_type
-        
+
 
 class Aggregator(Operator):
     COUNT = 1
@@ -250,6 +261,3 @@ class Aggregator(Operator):
     AVG = 3
     MIN = 4
     MAX = 5
-    
-
-    

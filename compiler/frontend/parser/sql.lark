@@ -49,7 +49,7 @@ expression: expression "+" expression -> add_expression
          | expression "/" expression -> div_expression
          | "-" expression -> neg
          | "(" expression ")"
-         | value 
+         | value
          | aggregated_select_statement
 
 data_type: CNAME

@@ -26,13 +26,15 @@ class ADNTransformer(Transformer):
 
     def aggregated_select_statement(self, s):
         aggregator, join_clause, where_clause, limit = s[0], s[3], s[4], s[5]
-        return SelectStatement(s[1], s[2]["table_name"], "", join_clause, where_clause, aggregator, limit)
+        return SelectStatement(
+            s[1], s[2]["table_name"], "", join_clause, where_clause, aggregator, limit
+        )
 
     def limit(self, l):
         return l[0]
 
     def set_statement(self, n):
-        #print(n)
+        # print(n)
         (n,) = n
         self.variables[n["variable"].value] = n["value"]
         return SetStatement(n["variable"], n["value"])
@@ -74,19 +76,19 @@ class ADNTransformer(Transformer):
         return res
 
     def expression(self, e):
-        #print("expression", e)
+        # print("expression", e)
         return e[0]
-    
+
     def add_expression(self, e):
-        #print("add_expression", e)
+        # print("add_expression", e)
         return Expression(e[0], e[1], ArithmeticOp.ADD)
 
     def sub_expression(self, e):
         return Expression(e[0], e[1], ArithmeticOp.SUB)
-    
+
     def mul_expression(self, e):
         return Expression(e[0], e[1], ArithmeticOp.MUL)
-    
+
     def div_expression(self, e):
         return Expression(e[0], e[1], ArithmeticOp.DIV)
 
@@ -211,23 +213,21 @@ class ADNTransformer(Transformer):
 
     def column_field(self, c):
         return ColumnValue(c[0]["table_name"], c[1])
-    
+
     def aggregator(self, a):
         return a[0]
-    
+
     def count(self, c):
-        return Aggregator.COUNT;
-    
+        return Aggregator.COUNT
+
     def sum(self, s):
-        return Aggregator.SUM;
-    
+        return Aggregator.SUM
+
     def avg(self, a):
-        return Aggregator.AVG;
-    
+        return Aggregator.AVG
+
     def max(self, m):
-        return Aggregator.MAX;
-    
+        return Aggregator.MAX
+
     def min(self, m):
-        return Aggregator.MIN;
-    
-    
+        return Aggregator.MIN
