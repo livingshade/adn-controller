@@ -417,46 +417,6 @@ class CodeGenerator(Visitor):
         node.data_type = RustBasicType("f64")
         ctx.push_code(f"{code}")
 
-    def visitLogicalOp(self, node: LogicalOp, ctx: Context):
-        if node == LogicalOp.AND:
-            op_str = "&&"
-        elif node == LogicalOp.OR:
-            op_str = "||"
-        else:
-            raise NotImplementedError
-        ctx.push_code(op_str)
-
-    def visitCompareOp(self, node: CompareOp, ctx: Context):
-        if node == CompareOp.EQ:
-            op_str = "=="
-        elif node == CompareOp.NE:
-            op_str = "!="
-        elif node == CompareOp.LT:
-            op_str = "<"
-        elif node == CompareOp.LE:
-            op_str = "<="
-        elif node == CompareOp.GT:
-            op_str = ">"
-        elif node == CompareOp.GE:
-            op_str = ">="
-        else:
-            raise NotImplementedError
-
-        ctx.push_code(op_str)
-
-    def visitArithmeticOp(self, node: ArithmeticOp, ctx: Context):
-        if node == ArithmeticOp.ADD:
-            op_str = "+"
-        elif node == ArithmeticOp.SUB:
-            op_str = "-"
-        elif node == ArithmeticOp.MUL:
-            op_str = "*"
-        elif node == ArithmeticOp.DIV:
-            op_str = "/"
-        else:
-            raise NotImplementedError
-        ctx.push_code(op_str)
-
     def visitSearchCondition(self, node: SearchCondition, ctx: Context):
         node.lvalue.accept(self, ctx)
         lvalue_str = ctx.pop_code()
