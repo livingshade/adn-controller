@@ -77,6 +77,9 @@ class DataType(Node):
     @property
     def type(self) -> str:
         return "DataType"
+    
+    def sql_type(self):
+        raise NotImplementedError
 
 
 class VarCharType(DataType):
@@ -105,7 +108,7 @@ class Statement(Node):
 
 class CreateTableStatement(Statement):
     def __init__(
-        self, table_name: str, columns: List[Tuple[Union[ColumnValue, DataType]]]
+        self, table_name: str, columns: List[Tuple[ColumnValue, DataType]]
     ):
         super().__init__()
         self.table_name = table_name
