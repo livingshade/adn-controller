@@ -11,18 +11,27 @@ class DataType(Enum):
     BOOL = 4
     UNKNOWN = 5
     
+    def __str__(self):
+        return self.name.lower()
+    
 class ContainerType(Enum):
     VEC = 1
     HASH = 2
     ORDERED_MAP = 3
     FILE = 4
     STREAMING = 5
+    
+    def __str__(self):
+        return self.name.lower()
 
-class ArithemeticOp(Enum):
+class ArithmeticOp(Enum):
     ADD = 1
     SUB = 2
     MUL = 3
     DIV = 4
+    
+    def __str__(self):
+        return self.name
     
 class CompareOp(Enum):
     EQ = 1
@@ -31,11 +40,17 @@ class CompareOp(Enum):
     GE = 4
     LE = 5
     NEQ = 6
+    
+    def __str__(self) -> str:
+        return self.name
 
 class LogicalOp(Enum):
     AND = 1
     OR = 2
     NOT = 3
+    
+    def __str__(self) -> str:
+        return self.name
 
 
 class Reducer(Enum):
@@ -44,6 +59,9 @@ class Reducer(Enum):
     AVG = 3
     MIN = 4
     MAX = 5
+    
+    def __str__(self) -> str:
+        return self.name
 
 class IRNode(ABC):
     def __init__(self):
@@ -67,45 +85,51 @@ class IRNode(ABC):
 
 
 #single value
-class Value(IRNode):
-    def __init__(self, val):
+class SingleValue(IRNode):
+    def __init__(self):
         super().__init__()
-        self.val = val
 
-    @abstractmethod
-    def value(self):
-        return self.val
-
-
-class Column(Value):
-    def __init__(self, table_name: str, column_name: str, dtype: DataType, val: Value):
-        super().__init__(val)
+class Column(SingleValue):
+    def __init__(self, table_name: str, column_name: str, dtype: DataType):
+        super().__init__()
         self.tname = table_name
         self.cname = column_name
         self.dtype = dtype
 
+    def __str__(self):
+        return f"{self.__class__.__name__}:{self.tname}.{self.cname} {self.dtype}"
 
-class Literal(Value):
-    def __init__(self, dtype: DataType, val: Value):
-        super().__init__(val)
+class Literal(SingleValue):
+    def __init__(self, dtype: DataType, val):
+        super().__init__()
         self.dtype = dtype
+        self.val = val
+    
+    def __str__(self):
+        return f"{self.__class__.__name__}:{self.val} {self.dtype}"
 
-class Var(Value):
-    def __init__(self, name: str, dtype: DataType, val: Value):
-        super().__init__(val)
+class Var(SingleValue):
+    def __init__(self, name: str, dtype: DataType):
+        super().__init__()
         self.name = name
         self.dtype = dtype
-        
+    
+    def __str__(self):
+        return f"{self.__class__.__name__}:{self.name} {self.dtype}"
+    
 class FunctionDefiniton(IRNode):
     def __init__(self, name: str, params: List[DataType], ret: DataType):
         super().__init__()
         self.name = name
         self.params = params
         self.ret = ret
+        
+    def __str__(self):
+        return f"{self.__class__.__name__}:{self.name} {self.params} -> {self.ret}"
 
-class FunctionCall(Value):
-    def __init__(self, func: FunctionDefiniton, params: List[Value]):
-        super().__init__(None)
+class FunctionCall(SingleValue):
+    def __init__(self, func: FunctionDefiniton, params: List[SingleValue]):
+        super().__init__()
         self.func = func
         self.params = params
     
@@ -113,9 +137,12 @@ class FunctionCall(Value):
         # return the return value of the function
         raise NotImplementedError
 
-class Expression(Value):
-    def __init__(self, lhs: Value, rhs: Value, op: ArithemeticOp):
-        super().__init__(None)
+    def __str__(self):
+        return f"{self.__class__.__name__}:{self.func.name} {self.params}"
+
+class Expression(SingleValue):
+    def __init__(self, lhs: SingleValue, rhs: SingleValue, op: ArithmeticOp):
+        super().__init__()
         self.lhs = lhs
         self.rhs = rhs
         self.op = op
@@ -123,29 +150,41 @@ class Expression(Value):
     def value(self):
         # return the value of the expression
         raise NotImplementedError
+    
+    def __str__(self):
+        return f"{self.__class__.__name__}:{self.lhs} {self.op} {self.rhs}"
 
 class Assignment(IRNode):
-    def __init__(self, lhs: Union[Var, Column], rhs: Value):
+    def __init__(self, lhs: Union[Var, Column], rhs: SingleValue):
         super().__init__()
         self.lhs = lhs
-        self.rhs = rhs        
+        self.rhs = rhs
+        
+    def __str__(self):
+        return f"{self.__class__.__name__}:{self.lhs} := {self.rhs}"        
 
 # multiple value
+class MultipleValue(IRNode):
+    def __init__(self):
+        super().__init__()
+
 
 class StructType(IRNode):
     def __init__(self, name: str, fields: List[Tuple[str, Union[StructType,DataType]]]):
         super().__init__()
         self.name = name
         self.fields = fields
+        
+    def __str__(self):
+        return f"{self.__class__.__name__}:{self.name} {self.fields}"
 
-class StructValue(IRNode):
-    def __init__(self, vals: List[Union[StructValue,Value]]):
+class StructValue(MultipleValue):
+    def __init__(self, vals: List[Union[StructValue, SingleValue]]):
         super().__init__()
         self.vals = vals
         
-    @abstractmethod
-    def values(self):
-        return self.vals
+    def __str__(self):
+        return f"{self.__class__.__name__}:{self.vals}"
     
 class TableDefinition(IRNode):
     def __init__(self, name: str, schema: StructType, hint: str):
@@ -153,12 +192,19 @@ class TableDefinition(IRNode):
         self.name = name
         self.schema = schema  
         self.hint = hint  
+        
+    def __str__(self):
+        return f"{self.__class__.__name__}:{self.name} {self.schema} {self.hint}"
 
-class TableInstance(StructValue):
-    def __init__(self, definition: TableDefinition, ctype: ContainerType, vals: List[StructValue]):
-        super().__init__(vals)    
+class TableInstance(MultipleValue):
+    def __init__(self, definition: TableDefinition, ctype: ContainerType, initvals: List[StructValue]):
+        super().__init__()    
         self.definition = definition
         self.ctype = ctype
+        self.initvals = initvals
+        
+    def __str__(self):
+        return f"{self.__class__.__name__}:{self.definition} {self.ctype} {self.initvals}"
 
 
 class Condition(IRNode):
@@ -166,11 +212,14 @@ class Condition(IRNode):
         super().__init__()
 
 class AlgebraCondition(Condition):
-    def __init__(self, lhs: Value, rhs: Value, op: CompareOp):
+    def __init__(self, lhs: SingleValue, rhs: SingleValue, op: CompareOp):
         super().__init__()
         self.lhs = lhs
         self.rhs = rhs
         self.op = op
+        
+    def __str__(self):
+        return f"{self.__class__.__name__}:{self.lhs} {self.op} {self.rhs}"
         
 class LogicalCondition(Condition):
     def __init__(self, lhs: Condition, rhs: Condition, op: LogicalOp):
@@ -181,6 +230,9 @@ class LogicalCondition(Condition):
         if self.op == LogicalOp.NOT:
             assert self.rhs is None
 
+    def __str__(self):
+        return f"{self.__class__.__name__}:{self.lhs} {self.op} {self.rhs}"
+
 class JoinCondition(Condition):
     def __init__(self, table_name: str, lhs: Column, rhs: Column):
         super().__init__()     
@@ -188,14 +240,16 @@ class JoinCondition(Condition):
         self.lhs = lhs
         self.rhs = rhs   
 
+    def __str__(self):
+        return f"{self.__class__.__name__}:{self.tname} {self.lhs} = {self.rhs}"
+
 class Operation(IRNode):
     def __init__(self):
         super().__init__()
             
-class Copy(Operation, StructValue):
-    def __init__(self, table_name: str, columns: StructType, join: JoinCondition = None, where: Condition = None, limit: Value = None):
-        super(Operation, self).__init__()
-        super(StructValue, self).__init__(None)
+class Copy(Operation, MultipleValue):
+    def __init__(self, table_name: str, columns: StructType, join: JoinCondition = None, where: Condition = None, limit: SingleValue = None):
+        super().__init__()
         self.tname = table_name
         self.columns = columns
         self.join = join
@@ -206,6 +260,9 @@ class Copy(Operation, StructValue):
         # return the values of the table
         raise NotImplementedError
     
+    def __str__(self):
+        return f"{self.__class__.__name__}:{self.tname} Cols:{self.columns}\n {self.join if self.join is not None else ''} {self.where if self.where is not None else ''} {self.limit if self.limit is not None else ''}"
+    
 class Insert(Operation):
     def __init__(self, table_name: str, vals: List[StructValue], select: Copy = None):
         super().__init__()
@@ -214,6 +271,12 @@ class Insert(Operation):
         self.select = select
         if self.select is not None:
             assert self.vals is None
+    
+    def __str__(self):
+        if self.vals is not None:
+            return f"{self.__class__.__name__}:{self.tname}{self.vals}"
+        else:
+            return f"{self.__class__.__name__}:{self.tname}{self.select}"
             
 class Update(Operation):
     def __init__(self, table_name: str, assgins: List[Assignment], where: Condition = None):
@@ -222,16 +285,21 @@ class Update(Operation):
         self.assigns = assgins
         self.where = where
         
+    def __str__(self):
+        return f"{self.__class__.__name__}:{self.tname} {self.assigns} {self.where}"
+        
 class Move(Operation):
     def __init__(self, table_name: str, where: Condition = None):
         super().__init__()
         self.tname = table_name
         self.where = where
         
-class Reduce(Operation, Value):
+    def __str__(self):
+        return f"{self.__class__.__name__}:{self.tname} {self.where}"
+        
+class Reduce(Operation, SingleValue):
     def __init__(self, table_name: str, reducer: Reducer, columns: StructType, join: JoinCondition = None, where: Condition = None, limit: Expression = None):
-        super(Operation, self).__init__()
-        super(Value, self).__init__(None)
+        super.__init__()
         self.tname = table_name
         self.reducer = reducer
         self.columns = columns
@@ -242,6 +310,9 @@ class Reduce(Operation, Value):
     def value(self):
         # return the value of the reducer
         raise NotImplementedError
+    
+    def __str__(self):
+        return f"{self.__class__.__name__}:{self.tname} {self.reducer} {self.columns} {self.join} {self.where} {self.limit}"
 
 class Root(IRNode):
     def __init__(self, children: List[Operation]):
@@ -250,6 +321,9 @@ class Root(IRNode):
         
     def __iter__(self):
         return iter(self.children)
+    
+    def __str__(self):
+        return f"{self.__class__.__name__}:" + "".join(["\n\t" + str(c) for c in self.children])
 
 TypeRPC = StructType("RPC", [StructType("meta", [("src", DataType.STR), ("dst", DataType.STR), ("type", DataType.STR)]), StructType("payload", [("data", DataType.STR)])])
 

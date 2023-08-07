@@ -1,4 +1,4 @@
-import compiler.tree.visitor as SQLVisitor 
+from compiler.tree.visitor import Visitor as SQLVisitor
 import compiler.tree.node as front
 import compiler.codegen.ir.node as ir
 from .context import IRContext
@@ -7,44 +7,47 @@ from typing import List, Tuple, Union
 
 def SQLType2IRType(sql_type: front.DataType) -> ir.DataType:
     if sql_type.sql_type() == "VARCHAR":
-        return ir.DataType.STRING
+        return ir.DataType.STR
     elif sql_type.sql_type() == "FILE":
         return ir.DataType.UNKNOWN
     elif sql_type.sql_type() == "TIMESTAMP":
-        return ir.DataType.STRING
+        return ir.DataType.STR
     else:
         raise ValueError("Unrecognized SQL type")
 
 class IRBuilder(SQLVisitor):
     def __init__(self):
-        self.ir = ir.Root([])
         self.ctx = IRContext()
 
-    def visitRoot(self, node: List[front.Statement]) -> None:
+    def visitRoot(self, node: List[front.Statement], ctx = None) -> None:
+        ops = []
         for statement in node:
             try:
                 # print("visitRoot", statement)
-                statement.accept(self)
+                ret = statement.accept(self)
+                if ret is not None:
+                    ops.append(ret)
             except Exception as e:
-                print(statement)
+                print("Error on ", statement)
                 raise e
+        return ir.Root(ops)
 
-    def visitColumnValue(self, node: front.ColumnValue) -> ir.Column:
-        return ir.Column(node.table_name, node.column_name, ir.DataType.UNKNOWN, None)
+    def visitColumnValue(self, node: front.ColumnValue, ctx = None) -> ir.Column:
+        return ir.Column(node.table_name, node.column_name, ir.DataType.UNKNOWN)
 
-    def visitFunctionValue(self, node: front.FunctionValue) -> ir.FunctionCall:
+    def visitFunctionValue(self, node: front.FunctionValue, ctx = None) -> ir.FunctionCall:
         raise NotImplementedError
 
-    def visitVariableValue(self, node: front.VariableValue) -> ir.Var:
+    def visitVariableValue(self, node: front.VariableValue, ctx = None) -> ir.Var:
         return ir.Var(node.value, ir.DataType.UNKNOWN, None)
 
-    def visitStringValue(self, node: front.StringValue) -> ir.Literal:
+    def visitStringValue(self, node: front.StringValue, ctx = None) -> ir.Literal:
         return ir.Literal(ir.DataType.STRING, node.value)
 
-    def visitNumberValue(self, node: front.NumberValue) -> ir.Literal:
+    def visitNumberValue(self, node: front.NumberValue, ctx = None) -> ir.Literal:
         return ir.Literal(ir.DataType.FLOAT, float(node.value))
 
-    def visitLogicalOp(self, node: front.LogicalOp) -> ir.LogicalOp:
+    def visitLogicalOp(self, node: front.LogicalOp, ctx = None) -> ir.LogicalOp:
         if node == front.LogicalOp.AND:
             return ir.LogicalOp.AND
         elif node == front.LogicalOp.OR:
@@ -52,7 +55,7 @@ class IRBuilder(SQLVisitor):
         else:
             raise NotImplementedError
 
-    def visitCompareOp(self, node: front.CompareOp) -> ir.CompareOp:
+    def visitCompareOp(self, node: front.CompareOp, ctx = None) -> ir.CompareOp:
         if node == front.CompareOp.EQ:
             return ir.CompareOp.EQ
         elif node == front.CompareOp.NE:
@@ -68,19 +71,19 @@ class IRBuilder(SQLVisitor):
         else:
             raise NotImplementedError
 
-    def visitArithmeticOp(self, node: front.ArithmeticOp) -> ir.ArithemeticOp:
+    def visitArithmeticOp(self, node: front.ArithmeticOp, ctx = None) -> ir.ArithmeticOp:
         if node == front.ArithmeticOp.ADD:
             return ir.ArithmeticOp.ADD
         elif node == front.ArithmeticOp.SUB:
             return ir.ArithmeticOp.SUB
         elif node == front.ArithmeticOp.MUL:
-            return ir.ArithemeticOp.MUL
+            return ir.ArithmeticOp.MUL
         elif node == front.ArithmeticOp.DIV:
-            return ir.ArithemeticOp.DIV
+            return ir.ArithmeticOp.DIV
         else:
             raise NotImplementedError
 
-    def visitAggregator(self, node: front.Aggregator) -> ir.Reducer:
+    def visitAggregator(self, node: front.Aggregator, ctx = None) -> ir.Reducer:
         if node == front.Aggregator.COUNT:
             return ir.Reducer.COUNT
         elif node == front.Aggregator.SUM:
@@ -93,7 +96,7 @@ class IRBuilder(SQLVisitor):
             return ir.Reducer.MAX
 
     def visitCreateTableStatement(
-        self, node: front.CreateTableStatement
+        self, node: front.CreateTableStatement, ctx = None
     ) -> None:
         table_name = node.table_name
         if table_name.endswith("_file"):
@@ -108,19 +111,22 @@ class IRBuilder(SQLVisitor):
             t = SQLType2IRType(t)
             fields.append((c, t))
         schema = ir.StructType("Gen" + table_name, fields)
-        if self.ctx.table_map.get(table_name) is not None:
-            raise Exception(f"Table {table_name} already exists")
-        table_def = ir.TableDefinition(table_name, columns, hint)
-        table = ir.TableInstance(table_def,  ir.ContainerType.FILE if hint == "file" else ir.ContainerType.VEC, [])
-        self.ctx.table_map[table_name] = table
         
-    def visitCreateTableAsStatement(self, node: front.CreateTableAsStatement) -> ir.Insert:
+        if self.ctx.table_map.get(node.table_name) is not None:
+            raise Exception(f"Table {node.table_name} already exists")
+        
+        table_def = ir.TableDefinition(table_name, schema, hint)
+        table = ir.TableInstance(table_def,  ir.ContainerType.FILE if hint == "file" else ir.ContainerType.VEC, [])
+        
+        self.ctx.table_map[node.table_name] = table
+        
+    def visitCreateTableAsStatement(self, node: front.CreateTableAsStatement, ctx = None) -> ir.Insert:
         table = node.table_name
         copy = node.select_stmt.accept(self)
         #todo
         raise NotImplementedError
         
-    def visitInsertSelectStatement(self, node: front.InsertSelectStatement) -> ir.Insert:
+    def visitInsertSelectStatement(self, node: front.InsertSelectStatement, ctx = None) -> ir.Insert:
         table = node.table_name
         if self.ctx.table_map.get(table) is None:
             raise Exception(f"Table {table} does not exist")
@@ -130,7 +136,7 @@ class IRBuilder(SQLVisitor):
         assert(isinstance(copy, ir.Copy))
         return ir.Insert(node.table_name, None, copy)
 
-    def visitSelectStatement(self, node: front.SelectStatement) -> Union[ir.Copy, ir.Reduce] :
+    def visitSelectStatement(self, node: front.SelectStatement, ctx = None) -> Union[ir.Copy, ir.Reduce]:
         table = node.from_table
         if self.ctx.table_map.get(table) is None:
             raise Exception(f"Table {table} does not exist")
@@ -138,7 +144,7 @@ class IRBuilder(SQLVisitor):
         columns: List[ir.Column] = [c.accept(self) for c in node.columns]
         
         newtype = ir.StructType("GenCopy" + node.from_table, [(c.cname, c.dtype) for c in columns])
-        if columns == front.Asterisk:
+        if len(node.columns) == 1 and node.columns[0] == front.Asterisk:
             newtype = table.definition.schema
         #todo check whether columns match
 
@@ -147,11 +153,11 @@ class IRBuilder(SQLVisitor):
         limit = node.limit.accept(self) if node.limit is not None else None
         
         if node.aggregator is not None:
-            return ir.Reduce(node.table_name, node.aggregator.accept(self), newtype, join_cond, where_cond, limit)
+            return ir.Reduce(node.from_table, node.aggregator.accept(self), newtype, join_cond, where_cond, limit)
         else:
-            return ir.Copy(node.table_name, newtype, join_cond, where_cond, limit)
+            return ir.Copy(node.from_table, newtype, join_cond, where_cond, limit)
 
-    def visitInsertValueStatement(self, node: front.InsertValueStatement) -> ir.Insert:
+    def visitInsertValueStatement(self, node: front.InsertValueStatement, ctx = None) -> ir.Insert:
         table = node.table_name
         if self.ctx.table_map.get(table) is None:
             raise Exception(f"Table {table} does not exist")
@@ -172,12 +178,12 @@ class IRBuilder(SQLVisitor):
         return ir.Insert(node.table_name, svs)
    
 
-    def visitSetStatement(self, node: front.SetStatement) -> ir.Assignment:
+    def visitSetStatement(self, node: front.SetStatement, ctx = None) -> ir.Assignment:
         var = node.accept(self)
         expr = node.expr.accept(self)
         return ir.Assignment(var, expr)
         
-    def visitSearchCondition(self, node: front.SearchCondition) -> ir.Condition:
+    def visitSearchCondition(self, node: front.SearchCondition, ctx = None) -> ir.Condition:
         lhs = node.lvalue.accept(self)
         rhs = node.rvalue.accept(self)
         op = node.operator.accept(self)
@@ -188,7 +194,7 @@ class IRBuilder(SQLVisitor):
         else:
             raise Exception("Unrecognized condition type")
     
-    def visitExpression(self, node: front.Expression) -> ir.Expression:
+    def visitExpression(self, node: front.Expression, ctx = None) -> ir.Expression:
         lhs = node.lvalue.accept(self)
         rhs = node.rvalue.accept(self)
         op = node.operator.accept(self)

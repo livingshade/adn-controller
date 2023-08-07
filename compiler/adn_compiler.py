@@ -8,13 +8,14 @@ from compiler.codegen.finalizer import finalize
 from compiler.codegen.generator import CodeGenerator
 from compiler.frontend.parser import ADNParser, ADNTransformer
 from compiler.graph.element import Element
-
+from compiler.codegen.ir.builder import IRBuilder
 
 class ADNCompiler:
     def __init__(self, verbose=False):
         self.verbose = verbose
         self.parser = ADNParser()
-        self.Transformer = ADNTransformer()
+        self.transformer = ADNTransformer()
+        self.builder = IRBuilder()
         self.generator = CodeGenerator()
 
     def parse(self, sql):
@@ -24,8 +25,11 @@ class ADNCompiler:
         ast = self.parse(sql)
         if self.verbose:
             print(ast)
-        return self.Transformer.transform(ast)
+        return self.transformer.transform(ast)
 
+    def buildir(self, sql):
+        ir = self.builder.visitRoot(sql)
+        print(ir)
     def gen(self, sql, ctx: Context):
         return self.generator.visitRoot(sql, ctx)
         # return visit_root(sql, ctx)
@@ -39,11 +43,17 @@ class ADNCompiler:
 
         init, process = self.transform(init), self.transform(process)
         # todo verbose
-        init = self.gen(init, ctx)
-        while ctx.empty() is False:
-            ctx.init_code.append(ctx.pop_code())
-        ctx.current = "process"
-        process = self.gen(process, ctx)
-        while ctx.empty() is False:
-            ctx.process_code.append(ctx.pop_code())
-        return finalize(elem.name, ctx, output_dir)
+
+        print("build ir init")
+        self.buildir(init)
+        
+        print("build ir process")
+        self.buildir(process)        
+        # init = self.gen(init, ctx)
+        # while ctx.empty() is False:
+        #     ctx.init_code.append(ctx.pop_code())
+        # ctx.current = "process"
+        # process = self.gen(process, ctx)
+        # while ctx.empty() is False:
+        #     ctx.process_code.append(ctx.pop_code())
+        # return finalize(elem.name, ctx, output_dir)

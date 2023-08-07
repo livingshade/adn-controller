@@ -135,8 +135,8 @@ if __name__ == "__main__":
             print(elem.name, ":")
             compiler.compile(elem, mrpc_dir)
 
-    if args.output == "mrpc":
-        ctx = graph.gen_toml()
-        finalize_graph(ctx, mrpc_dir)
+    # if args.output == "mrpc":
+    #     ctx = graph.gen_toml()
+    #     finalize_graph(ctx, mrpc_dir)
 
     print("Done!")
