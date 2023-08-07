@@ -1,6 +1,6 @@
 import compiler.tree.visitor as SQLVisitor 
 import compiler.tree.node as front
-import node as ir
+import compiler.codegen.ir.node as ir
 from .context import IRContext
 from typing import List, Tuple, Union
 
@@ -32,19 +32,19 @@ class IRBuilder(SQLVisitor):
     def visitColumnValue(self, node: front.ColumnValue) -> ir.Column:
         return ir.Column(node.table_name, node.column_name, ir.DataType.UNKNOWN, None)
 
-    def visitFunctionValue(self, node: front.FunctionValue):
+    def visitFunctionValue(self, node: front.FunctionValue) -> ir.FunctionCall:
         raise NotImplementedError
 
-    def visitVariableValue(self, node: front.VariableValue):
+    def visitVariableValue(self, node: front.VariableValue) -> ir.Var:
         return ir.Var(node.value, ir.DataType.UNKNOWN, None)
 
-    def visitStringValue(self, node: front.StringValue):
+    def visitStringValue(self, node: front.StringValue) -> ir.Literal:
         return ir.Literal(ir.DataType.STRING, node.value)
 
-    def visitNumberValue(self, node: front.NumberValue):
+    def visitNumberValue(self, node: front.NumberValue) -> ir.Literal:
         return ir.Literal(ir.DataType.FLOAT, float(node.value))
 
-    def visitLogicalOp(self, node: front.LogicalOp):
+    def visitLogicalOp(self, node: front.LogicalOp) -> ir.LogicalOp:
         if node == front.LogicalOp.AND:
             return ir.LogicalOp.AND
         elif node == front.LogicalOp.OR:
@@ -52,7 +52,7 @@ class IRBuilder(SQLVisitor):
         else:
             raise NotImplementedError
 
-    def visitCompareOp(self, node: front.CompareOp):
+    def visitCompareOp(self, node: front.CompareOp) -> ir.CompareOp:
         if node == front.CompareOp.EQ:
             return ir.CompareOp.EQ
         elif node == front.CompareOp.NE:
@@ -68,8 +68,7 @@ class IRBuilder(SQLVisitor):
         else:
             raise NotImplementedError
 
-
-    def visitArithmeticOp(self, node: front.ArithmeticOp):
+    def visitArithmeticOp(self, node: front.ArithmeticOp) -> ir.ArithemeticOp:
         if node == front.ArithmeticOp.ADD:
             return ir.ArithmeticOp.ADD
         elif node == front.ArithmeticOp.SUB:
@@ -80,6 +79,18 @@ class IRBuilder(SQLVisitor):
             return ir.ArithemeticOp.DIV
         else:
             raise NotImplementedError
+
+    def visitAggregator(self, node: front.Aggregator) -> ir.Reducer:
+        if node == front.Aggregator.COUNT:
+            return ir.Reducer.COUNT
+        elif node == front.Aggregator.SUM:
+            return ir.Reducer.SUM
+        elif node == front.Aggregator.AVG:
+            return ir.Reducer.AVG
+        elif node == front.Aggregator.MIN:
+            return ir.Reducer.MIN
+        elif node == front.Aggregator.MAX:
+            return ir.Reducer.MAX
 
     def visitCreateTableStatement(
         self, node: front.CreateTableStatement
@@ -103,24 +114,42 @@ class IRBuilder(SQLVisitor):
         table = ir.TableInstance(table_def,  ir.ContainerType.FILE if hint == "file" else ir.ContainerType.VEC, [])
         self.ctx.table_map[table_name] = table
         
-    def visitCreateTableAsStatement(self, node: front.CreateTableAsStatement):
+    def visitCreateTableAsStatement(self, node: front.CreateTableAsStatement) -> ir.Insert:
         table = node.table_name
         copy = node.select_stmt.accept(self)
         #todo
+        raise NotImplementedError
         
-    def visitInsertSelectStatement(self, node: front.InsertSelectStatement):
-        table = node.table_name
-        columns = node.columns
-        copy = node.select_stmt.accept(self)
-
-    def visitSelectStatement(self, node: front.SelectStatement) -> Union[ir.Copy, ir.Reduce] :
+    def visitInsertSelectStatement(self, node: front.InsertSelectStatement) -> ir.Insert:
         table = node.table_name
         if self.ctx.table_map.get(table) is None:
             raise Exception(f"Table {table} does not exist")
         table = self.ctx.table_map[table]
+        columns = node.columns
+        copy = node.select_stmt.accept(self)
+        assert(isinstance(copy, ir.Copy))
+        return ir.Insert(node.table_name, None, copy)
+
+    def visitSelectStatement(self, node: front.SelectStatement) -> Union[ir.Copy, ir.Reduce] :
+        table = node.from_table
+        if self.ctx.table_map.get(table) is None:
+            raise Exception(f"Table {table} does not exist")
+        table = self.ctx.table_map[table]
         columns: List[ir.Column] = [c.accept(self) for c in node.columns]
-        #todo
-        return ir.Copy(node.table_name, )
+        
+        newtype = ir.StructType("GenCopy" + node.from_table, [(c.cname, c.dtype) for c in columns])
+        if columns == front.Asterisk:
+            newtype = table.definition.schema
+        #todo check whether columns match
+
+        join_cond = node.join_clause.accept(self) if node.join_clause is not None else None
+        where_cond = node.where_clause.accept(self) if node.where_clause is not None else None
+        limit = node.limit.accept(self) if node.limit is not None else None
+        
+        if node.aggregator is not None:
+            return ir.Reduce(node.table_name, node.aggregator.accept(self), newtype, join_cond, where_cond, limit)
+        else:
+            return ir.Copy(node.table_name, newtype, join_cond, where_cond, limit)
 
     def visitInsertValueStatement(self, node: front.InsertValueStatement) -> ir.Insert:
         table = node.table_name

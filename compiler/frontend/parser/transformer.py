@@ -150,7 +150,7 @@ class ADNTransformer(Transformer):
 
     def all(self, a):
         # print("all", a)
-        return ColumnValue("", "*")
+        return Asterisk
 
     def select_list(self, s):
         return s

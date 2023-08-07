@@ -193,7 +193,7 @@ class Operation(IRNode):
         super().__init__()
             
 class Copy(Operation, StructValue):
-    def __init__(self, table_name: str, columns: StructType, join: JoinCondition = None, where: Condition = None, limit: Expression = None):
+    def __init__(self, table_name: str, columns: StructType, join: JoinCondition = None, where: Condition = None, limit: Value = None):
         super(Operation, self).__init__()
         super(StructValue, self).__init__(None)
         self.tname = table_name

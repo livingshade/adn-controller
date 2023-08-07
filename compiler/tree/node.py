@@ -264,3 +264,6 @@ class Aggregator(Operator):
     AVG = 3
     MIN = 4
     MAX = 5
+
+
+Asterisk = ColumnValue("", "*")
