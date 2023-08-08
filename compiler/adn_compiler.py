@@ -9,6 +9,7 @@ from compiler.codegen.generator import CodeGenerator
 from compiler.frontend.parser import ADNParser, ADNTransformer
 from compiler.graph.element import Element
 from compiler.codegen.ir.builder import IRBuilder
+from compiler.codegen.ir.printer import IRPrinter
 
 class ADNCompiler:
     def __init__(self, verbose=False):
@@ -29,7 +30,9 @@ class ADNCompiler:
 
     def buildir(self, sql):
         ir = self.builder.visitRoot(sql)
-        print(ir)
+        printer = IRPrinter()
+        print(printer.visitRoot(ir, 0))
+
     def gen(self, sql, ctx: Context):
         return self.generator.visitRoot(sql, ctx)
         # return visit_root(sql, ctx)
@@ -39,6 +42,7 @@ class ADNCompiler:
 
     def compile(self, elem: Element, output_dir: str):
         init, process = elem.sql
+                
         ctx: Context = init_ctx()
 
         init, process = self.transform(init), self.transform(process)

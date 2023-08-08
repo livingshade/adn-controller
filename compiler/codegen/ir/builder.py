@@ -36,13 +36,13 @@ class IRBuilder(SQLVisitor):
         return ir.Column(node.table_name, node.column_name, ir.DataType.UNKNOWN)
 
     def visitFunctionValue(self, node: front.FunctionValue, ctx = None) -> ir.FunctionCall:
-        raise NotImplementedError
+        return ir.FunctionCall(ir.FunctionDefiniton(node.value, [], ir.DataType.UNKNOWN), [])
 
     def visitVariableValue(self, node: front.VariableValue, ctx = None) -> ir.Var:
-        return ir.Var(node.value, ir.DataType.UNKNOWN, None)
+        return ir.Var(node.value, ir.DataType.UNKNOWN)
 
     def visitStringValue(self, node: front.StringValue, ctx = None) -> ir.Literal:
-        return ir.Literal(ir.DataType.STRING, node.value)
+        return ir.Literal(ir.DataType.STR, node.value)
 
     def visitNumberValue(self, node: front.NumberValue, ctx = None) -> ir.Literal:
         return ir.Literal(ir.DataType.FLOAT, float(node.value))
@@ -109,9 +109,8 @@ class IRBuilder(SQLVisitor):
         for c, t in columns:
             c = c.accept(self)
             t = SQLType2IRType(t)
-            fields.append((c, t))
+            fields.append((c.cname, t))
         schema = ir.StructType("Gen" + table_name, fields)
-        
         if self.ctx.table_map.get(node.table_name) is not None:
             raise Exception(f"Table {node.table_name} already exists")
         
@@ -151,7 +150,7 @@ class IRBuilder(SQLVisitor):
         join_cond = node.join_clause.accept(self) if node.join_clause is not None else None
         where_cond = node.where_clause.accept(self) if node.where_clause is not None else None
         limit = node.limit.accept(self) if node.limit is not None else None
-        
+
         if node.aggregator is not None:
             return ir.Reduce(node.from_table, node.aggregator.accept(self), newtype, join_cond, where_cond, limit)
         else:
@@ -165,7 +164,7 @@ class IRBuilder(SQLVisitor):
         
         columns = node.columns
         columns = [c.accept(self) for c in columns]
-        columns = [ir.Column(node.table_name, c.cname, c.dtype, None) for c in columns]
+        columns = [ir.Column(node.table_name, c.cname, c.dtype) for c in columns]
 
         svs = []
         for sv in node.values:
@@ -179,9 +178,18 @@ class IRBuilder(SQLVisitor):
    
 
     def visitSetStatement(self, node: front.SetStatement, ctx = None) -> ir.Assignment:
-        var = node.accept(self)
+        var = node.variable.accept(self)
         expr = node.expr.accept(self)
         return ir.Assignment(var, expr)
+        
+    def visitWhereClause(self, node: front.WhereClause, ctx = None) -> ir.Condition:
+        return node.search_condition.accept(self)
+    
+    def visitJoinClause(self, node: front.JoinClause, ctx = None) -> ir.JoinCondition:
+        tname = node.table_name
+        cond = node.search_condition.accept(self)
+        assert(cond.op == ir.CompareOp.EQ)
+        return ir.JoinCondition(tname, cond.lhs, cond.rhs)
         
     def visitSearchCondition(self, node: front.SearchCondition, ctx = None) -> ir.Condition:
         lhs = node.lvalue.accept(self)

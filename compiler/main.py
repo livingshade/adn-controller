@@ -11,7 +11,7 @@ from compiler.adn_compiler import ADNCompiler
 from compiler.codegen.codegen import *
 from compiler.codegen.finalizer import finalize_graph
 from compiler.config import ADN_ROOT, COMPILER_ROOT
-from compiler.frontend.printer import Printer
+from compiler.frontend.printer import Printer as SQLPrinter
 from compiler.tree.visitor import *
 
 
@@ -45,9 +45,9 @@ def compile_single(engine: str, compiler: ADNCompiler, mrpc_dir: str, verbose: b
 
     init, process = compiler.transform(init), compiler.transform(process)
 
-    printer = Printer()
-    printer.visitRoot(ast_init)
-    printer.visitRoot(ast_process)
+    printer = SQLPrinter()
+    printer.visitRoot(init)
+    printer.visitRoot(process)
     print("Compiling...")
     ctx = init_ctx()
 
@@ -104,7 +104,7 @@ if __name__ == "__main__":
 
     graph = Graph(elems, edges)
 
-    printer = Printer()
+    printer = SQLPrinter()
 
     for elem in graph:
         if args.output == "ast":

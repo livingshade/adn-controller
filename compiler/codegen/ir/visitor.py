@@ -18,7 +18,7 @@ def accept(visitor: Visitor, ctx) -> Callable:
 class Visitor(ABC):
     #  visit each class name in node.py 
     def visitIRNode(self, node: IRNode, ctx):
-        raise Exception(f"visit function for {node.name} not implemented")
+        raise Exception(f"visit function for {node.__class__.__name__} not implemented")
     def visitRoot(self, node: Root, ctx):
         pass
     def visitDataType(self, node: DataType, ctx):

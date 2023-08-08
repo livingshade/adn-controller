@@ -7,82 +7,152 @@ class IRPrinter(Visitor):
     
     def visitRoot(self, node: Root, ctx: int) -> str:
         ret = "Root:\n"
-        for stmt in node.statements:
-            ret += stmt.accept(self, ctx)
+        for ch in node.children:
+            ret += tab(ctx) + ch.accept(self, ctx + 1)
         return ret
     
     def visitDataType(self, node: DataType, ctx: int) -> str:
-        return node.name
+        return str(node)
     
     def visitColumn(self, node: Column, ctx: int) -> str:
-        return f"Column: {node.tname}.{node.cname} {node.dtype.accept(self, ctx)}"
+        return f"Col: {node.tname}.{node.cname} {node.dtype.accept(self, ctx)}"
     
     def visitLiteral(self, node: Literal, ctx: int) -> str:
-        return f"Literal: {node.val} {node.dtype.accept(self, ctx)}"
+        return f"Lit: {node.val} {node.dtype.accept(self, ctx)}"
     
     def visitVar(self, node: Var, ctx: int) -> str:
         return f"Var: {node.name} {node.dtype.accept(self, ctx)}"
     
     def visitFunctionDefiniton(self, node: FunctionDefiniton, ctx: int) -> str:
-        return f"FuncDef: {node.name} {node.params} {node.ret.accept(self, ctx)}"
+        ret = f"FuncDef:\n {node.name}\n" + tab(ctx)
+        for param in node.params:
+            ret += param.accept(self, ctx + 1) + " "
+        ret += '\n' + tab(ctx)
+        ret += node.ret.accept(self, ctx + 1); 
+        return ret
     
     def visitFunctionCall(self, node: FunctionCall, ctx: int) -> str:
-        return f"Call: {node.name} {node.params}"
+        ret = f"Call: {node.func.name}" 
+
+        if len(node.params) == 0:
+            ret += '()'
+        else:
+            ret += '('
+            for param in node.params:
+                ret += param.accept(self, ctx + 1) + ","
+            ret += ')'
+        return ret
     
     def visitAssignment(self, node: Assignment, ctx: int) -> str:
-        return f"Assignment: {node.name} {node.value.accept(self, ctx)}"
+        return f"Assignment: {node.lhs.accept(self, ctx + 1)} := {node.rhs.accept(self, ctx + 1)}\n"
     
     def visitExpression(self, node: Expression, ctx: int) -> str:
-        return f"Expression: {node.op} {node.left.accept(self, ctx)} {node.right.accept(self, ctx)}"
+        ret = f"Expression:\n {tab(ctx)} {node.left.accept(self, ctx + 1)}" + '\n' + tab(ctx)
+        ret += f"{node.op}" + '\n' + tab(ctx) 
+        ret += f"{node.right.accept(self, ctx + 1)}"
+        return ret + '\n'
     
     def visitLogicalOp(self, node: LogicalOp, ctx: int) -> str:
-        return f"LogicalOp: {node.op}"
+        return str(node)
     
     def visitCompareOp(self, node: CompareOp, ctx: int) -> str:
-        return f"CompareOp: {node.op}"
+        return str(node)
     
     def visitArithmeticOp(self, node: ArithmeticOp, ctx: int) -> str:
-        return f"ArithmeticOp: {node.op}"
+        return str(node)
     
     def visitReducer(self, node: Reducer, ctx: int) -> str:
-        return f"Reducer: {node.op}"
+        return str(node)
     
     def visitStructType(self, node: StructType, ctx: int) -> str:
-        return f"StructType: {node.name} {node.fields}"
+        ret = f"Struct<{node.name}>\n" + tab(ctx) 
+        for (name, f) in node.fields:
+            ret += f"{name}:" + f.accept(self, ctx + 1) + " "
+        return ret
+    
+    def visitStructValue(self, node: StructValue, ctx: int) -> str:
+        ret = "("
+        for val in node.vals:
+            ret += val.accept(self, ctx + 1) + ", "
+        return ret + ")"
     
     def visitTableInstance(self, node: TableInstance, ctx: int) -> str:
-        return f"TableInstance: {node.tname} {node.alias}"
+        ret = f"TableInstance: {node.ctype}\n" + tab(ctx)       
+        ret += f"{node.definition.accept(self, ctx + 1)}\n" + tab(ctx) 
+        for iv in node.initial_values:
+            ret += iv.accept(self, ctx + 1) + " "
+        return ret
     
     def visitTableDefinition(self, node: TableDefinition, ctx: int) -> str:
-        return f"TableDefinition: {node.tname} {node.fields}"
+        ret = f"TableDefinition: {node.tname}\n" + tab(ctx)
+        ret += f"{node.schema.accept(self, ctx + 1)}\n"
     
     def visitOperation(self, node: Operation, ctx: int) -> str:
         return f"Operation: {node.op}"
     
     def visitCopy(self, node: Copy, ctx: int) -> str:
-        return f"Copy: {node.src} {node.dst}"
+        ret =  f"Copy: {node.tname}" + '\n' + tab(ctx)
+        ret += f"{node.columns.accept(self, ctx + 1)}\n" + tab(ctx)
+        if node.join is not None:
+            ret += f"{node.join.accept(self, ctx + 1)}" + '\n' + tab(ctx)
+        if node.where is not None:
+            ret += f"{node.where.accept(self, ctx + 1)}" + '\n' + tab(ctx)
+        if node.limit is not None:
+            ret += f"{node.limit.accept(self, ctx + 1)}" + '\n' + tab(ctx)
+        return ret + '\n'
     
     def visitInsert(self, node: Insert, ctx: int) -> str:
-        return f"Insert: {node.table} {node.values}"
+        ret = f"Insert: {node.tname}" + '\n' + tab(ctx)
+        if node.vals is not None:
+            for val in node.vals:
+                ret += val.accept(self, ctx + 1) + '\n' + tab(ctx)
+        if node.select is not None:
+            ret += node.select.accept(self, ctx + 1)
+        return ret
     
     def visitMove(self, node: Move, ctx: int) -> str:
-        return f"Move: {node.src} {node.dst}"
-    
+        ret =  f"Move: {node.tname}" + '\n' + tab(ctx)
+        ret += f"{node.columns.accept(self, ctx + 1)}\n" + tab(ctx)
+        if node.where is not None:
+            ret += node.where.accept(self, ctx + 1) + '\n' + tab(ctx)
+
     def visitReduce(self, node: Reduce, ctx: int) -> str:
-        return f"Reduce: {node.table} {node.reducer}"
-    
+        ret =  f"Reduce: {node.tname} {node.reducer}" + '\n' + tab(ctx)
+        ret += f"{node.columns.accept(self, ctx + 1)}\n" + tab(ctx)
+        if node.join is not None:
+            ret += node.join.accept(self, ctx + 1) + '\n' + tab(ctx)
+        if node.where is not None:
+            ret += node.where.accept(self, ctx + 1) + '\n' + tab(ctx)
+        if node.limit is not None:
+            ret += node.limit.accept(self, ctx + 1) + '\n' + tab(ctx)    
+        return ret + '\n'
+            
     def visitUpdate(self, node: Update, ctx: int) -> str:
         return f"Update: {node.table} {node.assignments}"
     
     def visitCondition(self, node: Condition, ctx: int) -> str:
-        return f"Condition: {node.op} {node.left.accept(self, ctx)} {node.right.accept(self, ctx)}"
+        return f"Condition: {node.op}"
     
     def visitLogicalCondition(self, node: LogicalCondition, ctx: int) -> str:
-        return f"LogicalCondition: {node.op} {node.left.accept(self, ctx)} {node.right.accept(self, ctx)}"
+        ret = f"LogicCond:\n" + tab(ctx)
+        ret += {node.lhs.accept(self, ctx + 1)} + '\n' + tab(ctx)
+        ret += f"{node.op}" + '\n' + tab(ctx)
+        ret += f"{node.rhs.accept(self, ctx + 1)}"
+        return ret    
     
     def visitAlgebraCondition(self, node: AlgebraCondition, ctx: int) -> str:
-        return f"AlgebraCondition: {node.op} {node.left.accept(self, ctx)} {node.right.accept(self, ctx)}"
+        ret = f"AlgebraCond:\n" + tab(ctx)
+        ret += f"{node.lhs.accept(self, ctx + 1)}\n" + tab(ctx)
+        ret += f"{node.op}" + '\n' + tab(ctx)
+        ret += f"{node.rhs.accept(self, ctx + 1)}"  
+        return ret  
     
+    def visitJoinCondition(self, node: JoinCondition, ctx: int) -> str:
+        ret = f"JoinOn: {node.tname}\n" + tab(ctx)
+        ret += f"{node.lhs.accept(self, ctx + 1)}\n" + tab(ctx)
+        ret += "EQ" + '\n' + tab(ctx)
+        ret += f"{node.rhs.accept(self, ctx + 1)}"
+        return ret
     
 def tab(x: int) -> str:
     return "\t" * x

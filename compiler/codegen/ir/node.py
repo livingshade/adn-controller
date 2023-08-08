@@ -4,65 +4,6 @@ from abc import ABC, abstractmethod
 from enum import Enum
 from typing import List, Tuple, Union
 
-class DataType(Enum):
-    INT = 1
-    FLOAT = 2
-    STR = 3
-    BOOL = 4
-    UNKNOWN = 5
-    
-    def __str__(self):
-        return self.name.lower()
-    
-class ContainerType(Enum):
-    VEC = 1
-    HASH = 2
-    ORDERED_MAP = 3
-    FILE = 4
-    STREAMING = 5
-    
-    def __str__(self):
-        return self.name.lower()
-
-class ArithmeticOp(Enum):
-    ADD = 1
-    SUB = 2
-    MUL = 3
-    DIV = 4
-    
-    def __str__(self):
-        return self.name
-    
-class CompareOp(Enum):
-    EQ = 1
-    GT = 2
-    LT = 3
-    GE = 4
-    LE = 5
-    NEQ = 6
-    
-    def __str__(self) -> str:
-        return self.name
-
-class LogicalOp(Enum):
-    AND = 1
-    OR = 2
-    NOT = 3
-    
-    def __str__(self) -> str:
-        return self.name
-
-
-class Reducer(Enum):
-    COUNT = 1
-    SUM = 2
-    AVG = 3
-    MIN = 4
-    MAX = 5
-    
-    def __str__(self) -> str:
-        return self.name
-
 class IRNode(ABC):
     def __init__(self):
         pass
@@ -83,6 +24,78 @@ class IRNode(ABC):
                 return visit_func(self, ctx)
         raise Exception(f"visit function for {self.name} not implemented")
 
+
+class EnumOP(Enum):
+    def __eq__(self, other: EnumOP):
+        return self.value == other.value
+
+    def accept(self, visitor, ctx):
+        class_list = type(self).__mro__
+        for cls in class_list:
+            func_name = "visit" + cls.__name__
+            visit_func = getattr(visitor, func_name, None)
+            if visit_func is not None:
+                return visit_func(self, ctx)
+        raise Exception(f"visit function for {self.name} not implemented")
+
+class DataType(EnumOP):
+    INT = 1
+    FLOAT = 2
+    STR = 3
+    BOOL = 4
+    UNKNOWN = 5
+    
+    def __str__(self):
+        return self.name.lower()
+    
+class ContainerType(EnumOP):
+    VEC = 1
+    HASH = 2
+    ORDERED_MAP = 3
+    FILE = 4
+    STREAMING = 5
+    
+    def __str__(self):
+        return self.name.lower()
+
+class ArithmeticOp(EnumOP):
+    ADD = 1
+    SUB = 2
+    MUL = 3
+    DIV = 4
+    
+    def __str__(self):
+        return self.name
+    
+class CompareOp(EnumOP):
+    EQ = 1
+    GT = 2
+    LT = 3
+    GE = 4
+    LE = 5
+    NEQ = 6
+    
+    def __str__(self) -> str:
+        return self.name
+
+class LogicalOp(EnumOP):
+    AND = 1
+    OR = 2
+    NOT = 3
+    
+    def __str__(self) -> str:
+        return self.name
+
+
+class Reducer(EnumOP):
+    COUNT = 1
+    SUM = 2
+    AVG = 3
+    MIN = 4
+    MAX = 5
+    
+    def __str__(self) -> str:
+        return self.name
 
 #single value
 class SingleValue(IRNode):
@@ -325,7 +338,7 @@ class Root(IRNode):
     def __str__(self):
         return f"{self.__class__.__name__}:" + "".join(["\n\t" + str(c) for c in self.children])
 
-TypeRPC = StructType("RPC", [StructType("meta", [("src", DataType.STR), ("dst", DataType.STR), ("type", DataType.STR)]), StructType("payload", [("data", DataType.STR)])])
+TypeRPC = StructType("RPC", [("meta", StructType("meta", [("src", DataType.STR), ("dst", DataType.STR), ("type", DataType.STR)])), ("payload", StructType("payload", [("data", DataType.STR)]))])
 
 InputTable = TableInstance(TableDefinition("input", TypeRPC, "reserved"), ContainerType.STREAMING, [])
 
