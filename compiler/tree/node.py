@@ -149,7 +149,7 @@ class Operator(Enum):
     def __eq__(self, other: Operator):
         return self.value == other.value
 
-    def accept(self, visitor, ctx):
+    def accept(self, visitor, ctx = None):
         class_list = type(self).__mro__
         for cls in class_list:
             func_name = "visit" + cls.__name__
@@ -165,7 +165,7 @@ class CompareOp(Operator):
     LT = 3
     GE = 4
     LE = 5
-    NEQ = 6
+    NE = 6
 
 
 class LogicalOp(Operator):

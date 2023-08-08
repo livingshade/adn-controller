@@ -21,7 +21,7 @@ class IRPrinter(Visitor):
         return f"Lit: {node.val} {node.dtype.accept(self, ctx)}"
     
     def visitVar(self, node: Var, ctx: int) -> str:
-        return f"Var: {node.name} {node.dtype.accept(self, ctx)}"
+        return f"Var: {node.name}"# {node.dtype.accept(self, ctx)}"
     
     def visitFunctionDefiniton(self, node: FunctionDefiniton, ctx: int) -> str:
         ret = f"FuncDef:\n {node.name}\n" + tab(ctx)
@@ -44,13 +44,13 @@ class IRPrinter(Visitor):
         return ret
     
     def visitAssignment(self, node: Assignment, ctx: int) -> str:
-        return f"Assignment: {node.lhs.accept(self, ctx + 1)} := {node.rhs.accept(self, ctx + 1)}\n"
+        return f"Assign: {node.lhs.accept(self, ctx + 1)} := {node.rhs.accept(self, ctx + 1)}\n"
     
     def visitExpression(self, node: Expression, ctx: int) -> str:
-        ret = f"Expression:\n {tab(ctx)} {node.left.accept(self, ctx + 1)}" + '\n' + tab(ctx)
+        ret = f"({node.lhs.accept(self, ctx + 1)}" + '\n' + tab(ctx)
         ret += f"{node.op}" + '\n' + tab(ctx) 
-        ret += f"{node.right.accept(self, ctx + 1)}"
-        return ret + '\n'
+        ret += f"{node.lhs.accept(self, ctx + 1)}"
+        return ret + ")\n"
     
     def visitLogicalOp(self, node: LogicalOp, ctx: int) -> str:
         return str(node)
@@ -98,7 +98,7 @@ class IRPrinter(Visitor):
         if node.where is not None:
             ret += f"{node.where.accept(self, ctx + 1)}" + '\n' + tab(ctx)
         if node.limit is not None:
-            ret += f"{node.limit.accept(self, ctx + 1)}" + '\n' + tab(ctx)
+            ret += f"limit = {node.limit.accept(self, ctx + 1)}" + '\n' + tab(ctx)
         return ret + '\n'
     
     def visitInsert(self, node: Insert, ctx: int) -> str:
@@ -124,7 +124,7 @@ class IRPrinter(Visitor):
         if node.where is not None:
             ret += node.where.accept(self, ctx + 1) + '\n' + tab(ctx)
         if node.limit is not None:
-            ret += node.limit.accept(self, ctx + 1) + '\n' + tab(ctx)    
+            ret += "limit= " + node.limit.accept(self, ctx + 1) + '\n' + tab(ctx)    
         return ret + '\n'
             
     def visitUpdate(self, node: Update, ctx: int) -> str:
