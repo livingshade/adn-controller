@@ -1,6 +1,7 @@
 import sys
 
 from lark import Lark
+from typing import List, Tuple, Union
 
 from compiler.codegen.codegen import init_ctx
 from compiler.codegen.context import Context
@@ -8,8 +9,10 @@ from compiler.codegen.finalizer import finalize
 from compiler.codegen.generator import CodeGenerator
 from compiler.frontend.parser import ADNParser, ADNTransformer
 from compiler.graph.element import Element
-from compiler.codegen.ir.builder import IRBuilder
+from compiler.codegen.ir.builder import IRBuilder, IRContext
 from compiler.codegen.ir.printer import IRPrinter
+from compiler.codegen.ir.flow import Scanner, FlowGraph
+import compiler.codegen.ir.node as ir
 
 class ADNCompiler:
     def __init__(self, verbose=False):
@@ -28,11 +31,20 @@ class ADNCompiler:
             print(ast)
         return self.transformer.transform(ast)
 
-    def buildir(self, sql):
-        ir = self.builder.visitRoot(sql)
+    def buildir(self, sql) -> ir.Root:
+        root = self.builder.visitRoot(sql)
         printer = IRPrinter()
-        print(printer.visitRoot(ir, 0))
-
+        ctx = self.builder.ctx
+        print(printer.visitRoot(root, 0))
+        return root
+    
+    def analyze(self, root: ir.Root, irctx: IRContext):
+        scanner = Scanner(irctx.table_map)
+        ctx = FlowGraph()
+        root.accept(scanner, ctx)    
+        rep = ctx.report()
+        print(rep)
+        
     def gen(self, sql, ctx: Context):
         return self.generator.visitRoot(sql, ctx)
         # return visit_root(sql, ctx)
@@ -49,10 +61,12 @@ class ADNCompiler:
         # todo verbose
 
         print("build ir init")
-        self.buildir(init)
+        init = self.buildir(init)
         
         print("build ir process")
-        self.buildir(process)        
+        process = self.buildir(process) 
+        
+        self.analyze(process, self.builder.ctx)       
         # init = self.gen(init, ctx)
         # while ctx.empty() is False:
         #     ctx.init_code.append(ctx.pop_code())

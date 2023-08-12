@@ -19,7 +19,7 @@ class IRBuilder(SQLVisitor):
     def __init__(self):
         self.ctx = IRContext()
 
-    def visitRoot(self, node: List[front.Statement], ctx = None) -> None:
+    def visitRoot(self, node: List[front.Statement], ctx = None) -> ir.Root:
         ops = []
         for statement in node:
             try:
@@ -101,7 +101,6 @@ class IRBuilder(SQLVisitor):
         table_name = node.table_name
         if table_name.endswith("_file"):
             hint = "file"
-            table_name = table_name[:-5]
         else:
             hint = "mem"
         columns = node.columns

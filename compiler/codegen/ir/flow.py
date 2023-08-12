@@ -1,49 +1,135 @@
-from typing import Callable, List, Protocol, Sequence, TypeVar
+from typing import Callable, List, Protocol, Sequence, TypeVar, Dict
 from .visitor import Visitor, accept
 from .node import *
-
-def newnode() -> int:
-    x = 0
-    while True:
-        x = x + 1
-        yield x
+from compiler.protobuf.protobuf import HelloProto
 
 class Edge():
     def __init__(self, u: int, v: int, conds: List[Condition]) -> None:
-        u = u
-        v = v
-        conds = conds
+        self.u = u
+        self.v = v
+        self.conds = conds
 
 class Node():
-    def __init__(self, name: str, temp: bool) -> None:
+    def __init__(self, name: str, idx: int, temp: bool) -> None:
         self.name = name
-        self.idx = newnode()
-        self.edges = []
+        self.idx = idx
         self.temp = temp
+        self.edge_out = []
+        self.edge_in = []
         
     def add_edge(self, e: Edge) -> None:
-        assert(e.u == self.idx)
-        self.edges.append(e)
+        if e.u == self.idx:
+            self.edge_out.append(e)
+        elif e.v == self.idx:
+            self.edge_in.append(e)
+        else:
+            raise Exception("Edge not connected to node")
+    
+    
+def newnode() -> int:
+    x = 0
+    while True:
+        yield x
+        x = x + 1
 
 class FlowGraph():
     def __init__(self) -> None:
-        self.nodes: dict[str, Node] = {}
+        self.gen = newnode()
+        self.nodes: List[Node] = []
+        self.n2id: dict[str, int] = {}
+        self.t2n: dict[str, str] = {}
+        
     def has_node(self, name: str) -> bool:
-        return name in self.nodes
-    def add_node(self, name: str, temp: bool) -> None:
-        assert(not self.has_node(name))
-        self.nodes[name] = Node(name, temp)    
+        return name in self.n2id.keys()
     
-
+    def add_node(self, node: Node) -> None:
+        assert(not self.has_node(node.name))
+        while len(self.nodes) <= node.idx:
+            self.nodes.append(None)
+        self.nodes[node.idx] = node   
+        self.n2id[node.name] = node.idx
+        
+    def link(self, u: str, v: str, conds: List[Condition]) -> None:
+        assert(self.has_node(u))
+        assert(self.has_node(v))
+        l = self.n2id[u]
+        r = self.n2id[v]
+        e = Edge(l, r, conds) 
+        self.nodes[l].add_edge(e)
+        self.nodes[r].add_edge(e)
+    
+    def reg_table(self, tname: str) -> str:
+        if tname not in self.t2n.keys():
+            idx = next(self.gen)
+            name = f"{tname}_{idx}"
+            self.t2n[tname] = [name]
+            self.add_node(Node(name, idx, False))
+        return self.t2n[tname][-1]
+    
+    # returns (newname, oldname)
+    def update_table(self, tname: str, note: str = "") -> Tuple[str, str]:
+        assert(tname in self.t2n.keys())
+        idx = next(self.gen)
+        name = f"{tname}_{idx}_{note}"
+        self.t2n[tname].append(name)
+        self.add_node(Node(name, idx, False))
+        return self.t2n[tname][-1], self.t2n[tname][-2]
+    
+    def retrieve_table(self, tname: str) -> str:
+        if not tname in self.t2n.keys():
+            raise Exception(f"Table {tname} not registered")
+        return self.t2n[tname][-1]
+    
+    def report(self) -> str:
+        ret = ""
+        for n in self.nodes:
+            for e in n.edge_out:
+                u = self.nodes[e.u].name
+                v = self.nodes[e.v].name
+                conds = [str(i.__class__.__name__) for i in e.conds]
+                ret += f"{u} -> {v} {conds}\n"
+        return ret
+    
+    def column2field(self, col: Column) -> str:
+        pass
+    
+    def backtrace(self, cond: Condition):
+        pass            
+    
+    def readwrite(self) -> Tuple[List[str], List[str]]:
+        proto = HelloProto
+        visited = set()
+        q = [self.n2id["input"]]
+        while len(q) > 0:
+            u = q.pop()
+            if u in visited:
+                continue
+            visited.add(u)
+            node = self.nodes[u]
+            for e in node.edge_out:
+                v = e.v
+                if v not in visited:
+                    q.append(v)
+                for cond in e.conds:
+                    if isinstance(cond, Condition):
+                        #todo link cond to proto
+                        self.backtrace(cond)
+                        pass
+        pass    
+    
 class Scanner(Visitor):
-    def __init__(self) -> None:
-        read = []
-        write = []
-        possible_drop = True
-    
+    def __init__(self, tables: List[TableInstance]) -> None:
+        self.read = []
+        self.write = []
+        self.possible_drop = True
+        self.tables: Dict[str, TableInstance] = tables
+        
     def visitRoot(self, node: Root, ctx: FlowGraph) -> None:
+        for t in self.tables.values():
+            t.accept(self, ctx)
+        
         for ch in node.children:
-            ret += ch.accept(self, ctx)
+            ch.accept(self, ctx)
     
     def visitDataType(self, node: DataType, ctx: FlowGraph) -> None:
         pass
@@ -65,7 +151,7 @@ class Scanner(Visitor):
     
     def visitAssignment(self, node: Assignment, ctx: FlowGraph) -> None:
         #todo read from assignment
-        raise NotImplementedError
+        pass
     
     def visitExpression(self, node: Expression, ctx: int) -> str:
         raise NotImplementedError
@@ -80,9 +166,9 @@ class Scanner(Visitor):
         pass
     
     def visitTableInstance(self, node: TableInstance, ctx: FlowGraph) -> str:
-        if not ctx.has_node(node.tname):
-            ctx.add_node(node.tname, False)        
-        return node.definition.accept(self, ctx)
+        name = node.definition.name
+        node_name = ctx.reg_table(name)
+        return node_name
     
     def visitTableDefinition(self, node: TableDefinition, ctx: int) -> str:
         return node.tname
@@ -92,68 +178,64 @@ class Scanner(Visitor):
     
     def visitCopy(self, node: Copy, ctx: FlowGraph) -> str:
         conds = []
-        ret =  f"Copy: {node.tname}" + '\n' + tab(ctx)
-        ret += f"{node.columns.accept(self, ctx + 1)}\n" + tab(ctx)
+        table_node = ctx.retrieve_table(node.tname)
         if node.join is not None:
-            conds += node.join
-        if node.where is not None:
-            conds += node.where
-        if node.limit is not None:
-            raise NotImplementedError
-        return ret + '\n'
+            join_table = node.join.accept(self, ctx)
+            idx = next(ctx.gen)
+            merged_node = Node(f"join_{node.tname}_{join_table}_{idx}", idx, True)
+            ctx.add_node(merged_node)
+            ctx.link(table_node, merged_node.name, [] if node.where is None else [node.where])
+            ctx.link(join_table, merged_node.name, [node.join])
+            return merged_node.name
+        else:
+            if node.where is not None:
+                conds.append(node.where)
+            if node.limit is not None:
+                conds.append(node.limit)
+            idx = next(ctx.gen)
+            temp_node = Node(f"copy_{node.tname}_{idx}", idx, True)
+            ctx.add_node(temp_node)
+            ctx.link(table_node, temp_node.name, conds)   
+        return temp_node.name 
     
-    def visitInsert(self, node: Insert, ctx: int) -> str:
-        ret = f"Insert: {node.tname}" + '\n' + tab(ctx)
+    def visitInsert(self, node: Insert, ctx: FlowGraph) -> None:
+        table_node = ctx.retrieve_table(node.tname)
         if node.vals is not None:
-            for val in node.vals:
-                ret += val.accept(self, ctx + 1) + '\n' + tab(ctx)
+            return;
         if node.select is not None:
-            ret += node.select.accept(self, ctx + 1)
-        return ret
+            temp_node_name = node.select.accept(self, ctx)
+            ctx.link(temp_node_name, table_node, [])
+        return;
     
-    def visitMove(self, node: Move, ctx: int) -> str:
-        ret =  f"Move: {node.tname}" + '\n' + tab(ctx)
-        ret += f"{node.columns.accept(self, ctx + 1)}\n" + tab(ctx)
+    def visitMove(self, node: Move, ctx: FlowGraph) -> str:
+        conds = []
+        table_node = ctx.retrieve_table(node.tname)
         if node.where is not None:
-            ret += node.where.accept(self, ctx + 1) + '\n' + tab(ctx)
+            conds.append(node.where)
+        idx = next(ctx.gen)
+        temp_node = Node(f"move_{node.tname}_{idx}", idx, True)
+        ctx.add_node(temp_node)
+        ctx.link(table_node, temp_node.name, conds)
+        return temp_node.name
 
-    def visitReduce(self, node: Reduce, ctx: int) -> str:
-        ret =  f"Reduce: {node.tname} {node.reducer}" + '\n' + tab(ctx)
-        ret += f"{node.columns.accept(self, ctx + 1)}\n" + tab(ctx)
-        if node.join is not None:
-            ret += node.join.accept(self, ctx + 1) + '\n' + tab(ctx)
-        if node.where is not None:
-            ret += node.where.accept(self, ctx + 1) + '\n' + tab(ctx)
-        if node.limit is not None:
-            ret += "limit= " + node.limit.accept(self, ctx + 1) + '\n' + tab(ctx)    
-        return ret + '\n'
+    def visitReduce(self, node: Reduce, ctx: FlowGraph) -> str:
+        raise NotImplementedError
             
-    def visitUpdate(self, node: Update, ctx: int) -> str:
-        return f"Update: {node.table} {node.assignments}"
+    def visitUpdate(self, node: Update, ctx: FlowGraph) -> str:
+        raise NotImplementedError
     
-    def visitCondition(self, node: Condition, ctx: int) -> str:
-        return f"Condition: {node.op}"
+    def visitCondition(self, node: Condition, ctx: int):
+        pass
     
     def visitLogicalCondition(self, node: LogicalCondition, ctx: int) -> str:
-        ret = f"LogicCond:\n" + tab(ctx)
-        ret += {node.lhs.accept(self, ctx + 1)} + '\n' + tab(ctx)
-        ret += f"{node.op}" + '\n' + tab(ctx)
-        ret += f"{node.rhs.accept(self, ctx + 1)}"
-        return ret    
+        pass  
     
     def visitAlgebraCondition(self, node: AlgebraCondition, ctx: int) -> str:
-        ret = f"AlgebraCond:\n" + tab(ctx)
-        ret += f"{node.lhs.accept(self, ctx + 1)}\n" + tab(ctx)
-        ret += f"{node.op}" + '\n' + tab(ctx)
-        ret += f"{node.rhs.accept(self, ctx + 1)}"  
-        return ret  
+        pass
     
     def visitJoinCondition(self, node: JoinCondition, ctx: int) -> str:
-        ret = f"JoinOn: {node.tname}\n" + tab(ctx)
-        ret += f"{node.lhs.accept(self, ctx + 1)}\n" + tab(ctx)
-        ret += "EQ" + '\n' + tab(ctx)
-        ret += f"{node.rhs.accept(self, ctx + 1)}"
-        return ret
+        tname = node.tname
+        return ctx.retrieve_table(tname)
     
 def tab(x: int) -> str:
     return "\t" * x
