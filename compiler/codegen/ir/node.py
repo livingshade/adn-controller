@@ -223,6 +223,10 @@ class TableInstance(MultipleValue):
 class Condition(IRNode):
     def __init__(self):
         super().__init__()
+        self.read = []
+
+    def getread(self):
+        return self.read
 
 class AlgebraCondition(Condition):
     def __init__(self, lhs: SingleValue, rhs: SingleValue, op: CompareOp):
@@ -230,6 +234,15 @@ class AlgebraCondition(Condition):
         self.lhs = lhs
         self.rhs = rhs
         self.op = op
+        self.read = []
+        if isinstance(self.lhs, Column):
+            self.read += [self.lhs]
+        elif isinstance(self.lhs, Condition):
+            self.read += self.lhs.read
+        if isinstance(self.rhs, Column):
+            self.read += [self.rhs]
+        elif isinstance(self.rhs, Condition):
+            self.read += self.rhs.read
         
     def __str__(self):
         return f"{self.__class__.__name__}:{self.lhs} {self.op} {self.rhs}"
@@ -240,8 +253,20 @@ class LogicalCondition(Condition):
         self.lhs = lhs
         self.rhs = rhs
         self.op = op
+        self.read = []
         if self.op == LogicalOp.NOT:
+            self.read = self.lhs.read
+            assert(isinstance(self.lhs, Condition))
             assert self.rhs is None
+        else:
+            if isinstance(self.lhs, Column):
+                self.read += [self.lhs]
+            elif isinstance(self.lhs, Condition):
+                self.read += self.lhs.read
+            if isinstance(self.rhs, Column):
+                self.read += [self.rhs]
+            elif isinstance(self.rhs, Condition):
+                self.read += self.rhs.read
 
     def __str__(self):
         return f"{self.__class__.__name__}:{self.lhs} {self.op} {self.rhs}"
@@ -252,6 +277,7 @@ class JoinCondition(Condition):
         self.tname = table_name
         self.lhs = lhs
         self.rhs = rhs   
+        self.read = [self.lhs, self.rhs]
 
     def __str__(self):
         return f"{self.__class__.__name__}:{self.tname} {self.lhs} = {self.rhs}"

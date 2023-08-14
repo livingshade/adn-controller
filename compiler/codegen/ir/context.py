@@ -1,6 +1,6 @@
 from .node import *
 from typing import Dict, List, Union
-
+from compiler.protobuf import *
 
 class IRContext():
     def __init__(self) -> None:

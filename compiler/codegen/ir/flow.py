@@ -1,13 +1,14 @@
 from typing import Callable, List, Protocol, Sequence, TypeVar, Dict
 from .visitor import Visitor, accept
 from .node import *
-from compiler.protobuf.protobuf import HelloProto
+from compiler.protobuf import *
 
 class Edge():
-    def __init__(self, u: int, v: int, conds: List[Condition]) -> None:
+    def __init__(self, u: int, v: int, conds: List[Condition], trans: List[Tuple[str, str]] = []) -> None:
         self.u = u
         self.v = v
         self.conds = conds
+        self.trans = trans
 
 class Node():
     def __init__(self, name: str, idx: int, temp: bool) -> None:
@@ -37,7 +38,7 @@ class FlowGraph():
         self.gen = newnode()
         self.nodes: List[Node] = []
         self.n2id: dict[str, int] = {}
-        self.t2n: dict[str, str] = {}
+        self.t2n: dict[str, List[str]] = {}
         
     def has_node(self, name: str) -> bool:
         return name in self.n2id.keys()
@@ -96,10 +97,22 @@ class FlowGraph():
     def backtrace(self, cond: Condition):
         pass            
     
-    def readwrite(self) -> Tuple[List[str], List[str]]:
-        proto = HelloProto
+    def infer(self, proto: ProtoMessage) -> Tuple[List[str], List[str], bool]:
+        
+        input_id = self.t2n["input"]
+        assert(len(input_id) == 1)
+        input_id = self.n2id[input_id[0]]
+        
+        output_id = self.t2n["output"][-1]
+        output_id = self.n2id[output_id]
+        
+        read = set()
+        written = set()
+        drop = True
+
+        # read & write
         visited = set()
-        q = [self.n2id["input"]]
+        q = [input_id]
         while len(q) > 0:
             u = q.pop()
             if u in visited:
@@ -112,10 +125,36 @@ class FlowGraph():
                     q.append(v)
                 for cond in e.conds:
                     if isinstance(cond, Condition):
-                        #todo link cond to proto
-                        self.backtrace(cond)
-                        pass
-        pass    
+                        read_cols: List[Column] = cond.getread()
+                        for col in read_cols:
+                            # todo consider chorno order
+                            # the tid it refers to may not be the latest
+                            tid = self.n2id[self.t2n[col.tname][-1]]
+                            if tid in visited:
+                                proto_field = proto.from_name(col.cname)
+                                if proto_field is not None:
+                                    read.add(proto_field)
+                                else:
+                                    raise Exception(f"Field {col.cname} not in proto message!")
+        
+        # drop                        
+        visited = set()
+        q = [input_id]
+        while len(q) > 0:
+            u = q.pop()
+            if u in visited:
+                continue
+            visited.add(u)
+            node = self.nodes[u]
+            for e in node.edge_out:
+                v = e.v
+                if len(e.conds) > 0:
+                    continue
+                if v not in visited:
+                    q.append(v)
+        drop = output_id not in visited
+        
+        return list(read), list(written), drop   
     
 class Scanner(Visitor):
     def __init__(self, tables: List[TableInstance]) -> None:
@@ -181,12 +220,17 @@ class Scanner(Visitor):
         table_node = ctx.retrieve_table(node.tname)
         if node.join is not None:
             join_table = node.join.accept(self, ctx)
-            idx = next(ctx.gen)
-            merged_node = Node(f"join_{node.tname}_{join_table}_{idx}", idx, True)
-            ctx.add_node(merged_node)
-            ctx.link(table_node, merged_node.name, [] if node.where is None else [node.where])
-            ctx.link(join_table, merged_node.name, [node.join])
-            return merged_node.name
+            idx_pre = next(ctx.gen)
+            idx_after = next(ctx.gen)
+            pre_node = Node(f"pre_join_{node.tname}_{join_table}_{idx_pre}", idx_pre, True)
+            after_node = Node(f"after_join_{node.tname}_{join_table}_{idx_after}", idx_after, True)
+
+            ctx.add_node(pre_node)
+            ctx.add_node(after_node)
+            ctx.link(table_node, pre_node.name, [])
+            ctx.link(join_table, pre_node.name, [])
+            ctx.link(pre_node.name, after_node.name, [node.join] if node.where is None else [node.join, node.where])
+            return after_node.name
         else:
             if node.where is not None:
                 conds.append(node.where)

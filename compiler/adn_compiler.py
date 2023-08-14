@@ -13,6 +13,7 @@ from compiler.codegen.ir.builder import IRBuilder, IRContext
 from compiler.codegen.ir.printer import IRPrinter
 from compiler.codegen.ir.flow import Scanner, FlowGraph
 import compiler.codegen.ir.node as ir
+from compiler.protobuf import HelloProto
 
 class ADNCompiler:
     def __init__(self, verbose=False):
@@ -44,6 +45,8 @@ class ADNCompiler:
         root.accept(scanner, ctx)    
         rep = ctx.report()
         print(rep)
+        read, write, drop = ctx.infer(HelloProto.from_name("HelloRequest"))
+        print(f"read: {read}, write: {write}, drop: {drop}")
         
     def gen(self, sql, ctx: Context):
         return self.generator.visitRoot(sql, ctx)

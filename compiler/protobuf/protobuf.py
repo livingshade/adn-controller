@@ -10,6 +10,12 @@ class ProtoMessage:
         self.name = name
         self.fields = fields
 
+    def from_name(self, name: str) -> str:
+        for f in self.fields:
+            if f == name:
+                return f
+        return None
+
     def gen_readonly_def(self, proto: str):
         ret = []
         for field in self.fields:
@@ -29,6 +35,12 @@ class Proto:
     def __init__(self, name: str, msg: List[ProtoMessage]) -> None:
         self.name = name
         self.msg = msg
+
+    def from_name(self, name: str) -> ProtoMessage:
+        for m in self.msg:
+            if m.name == name:
+                return m
+        return None
 
     def namespace(self):
         return self.name

@@ -1,1 +1,1 @@
-from .protobuf import Proto
+from .protobuf import *

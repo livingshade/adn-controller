@@ -1,6 +1,7 @@
 from compiler.tree.visitor import Visitor as SQLVisitor
 import compiler.tree.node as front
 import compiler.codegen.ir.node as ir
+from compiler.protobuf import Proto
 from .context import IRContext
 from typing import List, Tuple, Union
 
