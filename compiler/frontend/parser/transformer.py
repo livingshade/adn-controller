@@ -49,8 +49,16 @@ class ADNTransformer(Transformer):
         return InsertValueStatement(i[0]["table_name"], i[1], i[2:])
 
     def insert_select_statement(self, i):
-        i[2].to_table = i[0]["table_name"]
-        return InsertSelectStatement(i[0]["table_name"], i[1], i[2])
+        if isinstance(i[1], SelectStatement):
+            return InsertSelectStatement(i[0]["table_name"], Asterisk, i[1])
+        else:
+            return InsertSelectStatement(i[0]["table_name"], i[1], i[2])
+
+    def delete_statement(self, d):
+        if len(d) == 2:
+            return DeleteStatement(d[0]["table_name"], d[1])
+        else:
+            return DeleteStatement(d[0]["table_name"], None)
 
     def identifier(self, i):
         (i,) = i
@@ -121,6 +129,8 @@ class ADNTransformer(Transformer):
             data_type = VarCharType(length)
         elif type_name == "FILE":
             data_type = FileType(length)
+        elif type_name == "INT":
+            data_type = IntType(length)
         else:
             raise ValueError(f"Unsupported type '{type_name}'")
         res = {"column": column, "data_type": data_type}

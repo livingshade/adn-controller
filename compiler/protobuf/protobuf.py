@@ -62,3 +62,5 @@ HelloProto = Proto(
         ProtoMessage("HelloReply", ["message"]),
     ],
 )
+
+ExampleProtoMsg = ProtoMessage("Example", ["income", "age", "deg"])

@@ -24,10 +24,7 @@ class ADNCompiler:
         self.generator = CodeGenerator()
 
     def parse(self, sql):
-        return self.parser.parse(sql)
-
-    def transform(self, sql):
-        ast = self.parse(sql)
+        ast = self.parser.parse(sql)
         if self.verbose:
             print(ast)
         return self.transformer.transform(ast)
@@ -39,7 +36,8 @@ class ADNCompiler:
         print(printer.visitRoot(root, 0))
         return root
     
-    def analyze(self, root: ir.Root, irctx: IRContext):
+    def analyze(self, root: ir.Root):
+        irctx = self.builder.ctx
         scanner = Scanner(irctx.table_map)
         ctx = FlowGraph()
         root.accept(scanner, ctx)    
@@ -55,12 +53,12 @@ class ADNCompiler:
     def finalize(self, engine: str, ctx: Context, output_dir: str):
         return finalize(engine, ctx, output_dir)
 
+
     def compile(self, elem: Element, output_dir: str):
         init, process = elem.sql
-                
         ctx: Context = init_ctx()
 
-        init, process = self.transform(init), self.transform(process)
+        init, process = self.parse(init), self.parse(process)
         # todo verbose
 
         print("build ir init")
@@ -69,7 +67,7 @@ class ADNCompiler:
         print("build ir process")
         process = self.buildir(process) 
         
-        self.analyze(process, self.builder.ctx)       
+        self.analyze(process)       
         # init = self.gen(init, ctx)
         # while ctx.empty() is False:
         #     ctx.init_code.append(ctx.pop_code())

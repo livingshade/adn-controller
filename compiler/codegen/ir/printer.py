@@ -112,9 +112,9 @@ class IRPrinter(Visitor):
     
     def visitMove(self, node: Move, ctx: int) -> str:
         ret =  f"Move: {node.tname}" + '\n' + tab(ctx)
-        ret += f"{node.columns.accept(self, ctx + 1)}\n" + tab(ctx)
         if node.where is not None:
             ret += node.where.accept(self, ctx + 1) + '\n' + tab(ctx)
+        return ret
 
     def visitReduce(self, node: Reduce, ctx: int) -> str:
         ret =  f"Reduce: {node.tname} {node.reducer}" + '\n' + tab(ctx)
@@ -135,7 +135,8 @@ class IRPrinter(Visitor):
     
     def visitLogicalCondition(self, node: LogicalCondition, ctx: int) -> str:
         ret = f"LogicCond:\n" + tab(ctx)
-        ret += {node.lhs.accept(self, ctx + 1)} + '\n' + tab(ctx)
+        t1 = node.lhs.accept(self, ctx + 1)
+        ret += f"{node.lhs.accept(self, ctx + 1)}\n" + tab(ctx)
         ret += f"{node.op}" + '\n' + tab(ctx)
         ret += f"{node.rhs.accept(self, ctx + 1)}"
         return ret    

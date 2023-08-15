@@ -1,0 +1,6 @@
+message Student {
+  int32 income = 1;
+  int32 age = 2;
+  string deg = 3;
+}
+

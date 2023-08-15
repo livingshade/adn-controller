@@ -8,6 +8,7 @@ statement: normal_select_statement
        | insert_value_statement
        | insert_select_statement
        | update_statement
+       | delete_statement
 
 normal_select_statement: "SELECT" select_list "FROM" table_name [join_clause] [where_clause] [limit]
 
@@ -33,6 +34,8 @@ update_statement: "UPDATE" table_name "SET" update_list [where_clause]
 
 update_list: assignment ("," assignment)*
 
+delete_statement: "DELETE FROM" table_name [where_clause]
+ 
 where_clause: "WHERE" search_condition
 
 column_list: "(" column_name ("," column_name)* ")"

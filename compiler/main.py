@@ -17,7 +17,15 @@ from compiler.tree.visitor import *
 
 def preprocess(sql_file: str) -> Tuple[str, str]:
     with open(os.path.join(ADN_ROOT, f"elements/{sql_file}"), "r") as file:
-        sql_file_content = file.read()
+        lines = file.readlines()
+        for l in lines:
+            if "--init" in l:
+                l = l.strip()
+                l = [i.strip("--") for i in l.split("@")]
+                proto_name = l[1]
+                print("proto_name:", proto_name)
+    with open(os.path.join(ADN_ROOT, f"elements/{sql_file}"), "r") as file:
+        sql_file_content = file.read()    
     print(sql_file, ":")
     print(sql_file_content)
     # Remove comments from the SQL file
@@ -110,13 +118,13 @@ if __name__ == "__main__":
         if args.output == "ast":
             print(elem.name, ":")
             init, process = elem.sql
-            init, process = compiler.transform(init), compiler.transform(process)
+            init, process = compiler.parse(init), compiler.parse(process)
             printer.visitRoot(init)
             printer.visitRoot(process)
         elif args.output == "ir":
             print(elem.name, ":")
             init, process = elem.sql
-            init, process = compiler.transform(init), compiler.transform(process)
+            init, process = compiler.parse(init), compiler.parse(process)
             ctx = init_ctx()
             init = compiler.gen(init, ctx)
             process = compiler.gen(process, ctx)
@@ -131,6 +139,13 @@ if __name__ == "__main__":
                 f.write("\n".join(ctx.init_code))
                 f.write("// process code\n")
                 f.write("\n".join(ctx.process_code))
+        elif args.output == "prop":
+            print(elem.name, ":")
+            init, process = elem.sql
+            init, process = compiler.parse(init), compiler.parse(process)
+            init = compiler.buildir(init)
+            process = compiler.buildir(process)
+            compiler.analyze(process)
         else:
             print(elem.name, ":")
             compiler.compile(elem, mrpc_dir)

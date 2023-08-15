@@ -13,6 +13,8 @@ def SQLType2IRType(sql_type: front.DataType) -> ir.DataType:
         return ir.DataType.UNKNOWN
     elif sql_type.sql_type() == "TIMESTAMP":
         return ir.DataType.STR
+    elif sql_type.sql_type() == "INT":
+        return ir.DataType.INT
     else:
         raise ValueError("Unrecognized SQL type")
 
@@ -176,6 +178,15 @@ class IRBuilder(SQLVisitor):
 
         return ir.Insert(node.table_name, svs)
    
+    def visitDeleteStatement(self, node: front.DeleteStatement, ctx = None) -> ir.Move:
+        table = node.table_name
+        if self.ctx.table_map.get(table) is None:
+            raise Exception(f"Table {table} does not exist")
+        table = self.ctx.table_map[table]
+        
+        where = node.where_clause.accept(self) if node.where_clause is not None else None
+        
+        return ir.Move(node.table_name, where)
 
     def visitSetStatement(self, node: front.SetStatement, ctx = None) -> ir.Assignment:
         var = node.variable.accept(self)

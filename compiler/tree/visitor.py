@@ -42,6 +42,9 @@ class Visitor(ABC):
 
     def visitInsertSelectStatement(self, node: InsertSelectStatement, ctx):
         pass
+    
+    def visitDeleteStatement(self, node: DeleteStatement, ctx):
+        pass
 
     def visitSelectStatement(self, node: SelectStatement, ctx):
         pass

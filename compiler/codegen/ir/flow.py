@@ -281,6 +281,3 @@ class Scanner(Visitor):
         tname = node.tname
         return ctx.retrieve_table(tname)
     
-def tab(x: int) -> str:
-    return "\t" * x
-    

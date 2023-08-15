@@ -26,6 +26,8 @@ def type_mapping(sql_type):
         return RustBasicType("String")
     elif sql_type == "FILE":
         return RustBasicType("File")
+    elif sql_type == "INT":
+        return RustBasicType("i32")
     else:
         raise ValueError("Unknown type")
 

@@ -75,12 +75,21 @@ class Printer(Visitor):
         return add_indent(res, ctx)
 
     def visitInsertSelectStatement(self, node: InsertSelectStatement, ctx: int) -> str:
+        column = f"{', '.join(c.accept(self, 0) for c in node.columns)}" if node.columns != Asterisk else "*"
         res = [
             "InsertSelectStatement",
             f"    table_name: {node.table_name}",
-            f"    columns: {', '.join(c.accept(self, 0) for c in node.columns)}",
+            f"    columns: {column}",
             "    select_stmt:",
             node.select_stmt.accept(self, 2),
+        ]
+        return add_indent(res, ctx)
+
+    def visitDeleteStatement(self, node: DeleteStatement, ctx: int) -> str:
+        res = [
+            "DeleteStatement",
+            f"    table_name: {node.table_name}",
+            f"    where_clause: {node.where_clause.accept(self, 0) if node.where_clause is not None else 'True'}",
         ]
         return add_indent(res, ctx)
 
@@ -117,7 +126,7 @@ class Printer(Visitor):
     def visitCompareOp(self, node: CompareOp, ctx: int) -> str:
         if node == CompareOp.EQ:
             res = "=="
-        elif node == CompareOp.NEQ:
+        elif node == CompareOp.NE:
             res = "!="
         elif node == CompareOp.GT:
             res = ">"

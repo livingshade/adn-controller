@@ -96,6 +96,9 @@ class TimestampType(DataType):
     def sql_type(self):
         return "TIMESTAMP"
 
+class IntType(DataType):
+    def sql_type(self):
+        return "INT"
 
 class Statement(Node):
     def __init__(self):
@@ -143,6 +146,13 @@ class InsertSelectStatement(Statement):
         self.table_name = table_name
         self.columns = columns
         self.select_stmt = select_stmt
+
+
+class DeleteStatement(Statement):
+    def __init__(self, table_name: str, where_clause: WhereClause):
+        super().__init__()
+        self.table_name = table_name
+        self.where_clause = where_clause
 
 
 class Operator(Enum):
@@ -241,7 +251,6 @@ class SetStatement(Statement):
         self.variable = variable
         self.expr = expr
         self.variable.data_type = self.expr.data_type
-
 
 class Expression(Value):
     def __init__(
