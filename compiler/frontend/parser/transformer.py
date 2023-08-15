@@ -60,6 +60,13 @@ class ADNTransformer(Transformer):
         else:
             return DeleteStatement(d[0]["table_name"], None)
 
+    def update_statement(self, u):
+        return UpdateStatement(u[0]["table_name"], u[1], u[2])
+
+    def update_list(self, u):
+        ret = [SetStatement(ColumnValue("", i["variable"].value), i["value"]) for i in u]
+        return ret
+    
     def identifier(self, i):
         (i,) = i
         res = {"variable": VariableValue(i.value)}

@@ -93,6 +93,15 @@ class Printer(Visitor):
         ]
         return add_indent(res, ctx)
 
+    def visitUpdateStatement(self, node: UpdateStatement, ctx: int) -> str:
+        res = [
+            "UpdateStatement",
+            f"    table_name: {node.table_name}",
+            f"    set_clause: {', '.join(c.accept(self, 0) for c in node.assigns)}",
+            f"    where_clause: {node.where_clause.accept(self, 0) if node.where_clause is not None else 'True'}",
+        ]
+        return add_indent(res, ctx)
+    
     def visitSelectStatement(self, node: SelectStatement, ctx: int) -> str:
         res = [
             "SelectStatement",
@@ -112,7 +121,7 @@ class Printer(Visitor):
 
     def visitSetStatement(self, node: SetStatement, ctx: int) -> str:
         res = [
-            "SetStatement",
+            "Set",
             f"    {node.variable.accept(self, 0)} = {node.expr.accept(self, 0)}",
         ]
         return add_indent(res, ctx)

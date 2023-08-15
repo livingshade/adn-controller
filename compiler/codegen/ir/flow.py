@@ -3,11 +3,25 @@ from .visitor import Visitor, accept
 from .node import *
 from compiler.protobuf import *
 
+class Weight():
+    def __init__(self, tid: int, cname: str, read: bool, write: bool, drop: bool) -> None:
+        self.tid = tid
+        self.cname = cname 
+        self.read = read
+        self.write = write
+        self.drop = drop
+        
+    def __str__(self) -> str:
+        if self.tid is not None:
+            return f"{self.tid}.{self.cname}{' r' if self.read else ''}{' w' if self.write else ''}{' d' if self.drop else ''}"    
+        else:
+            return f"d"
+        
 class Edge():
-    def __init__(self, u: int, v: int, conds: List[Condition], trans: List[Tuple[str, str]] = []) -> None:
+    def __init__(self, u: int, v: int, w: List[Weight] = [], trans: List[Tuple[str, str]] = []) -> None:
         self.u = u
         self.v = v
-        self.conds = conds
+        self.w = w
         self.trans = trans
 
 class Node():
@@ -50,12 +64,12 @@ class FlowGraph():
         self.nodes[node.idx] = node   
         self.n2id[node.name] = node.idx
         
-    def link(self, u: str, v: str, conds: List[Condition]) -> None:
+    def link(self, u: str, v: str, w: List[Weight]) -> None:
         assert(self.has_node(u))
         assert(self.has_node(v))
         l = self.n2id[u]
         r = self.n2id[v]
-        e = Edge(l, r, conds) 
+        e = Edge(l, r, w) 
         self.nodes[l].add_edge(e)
         self.nodes[r].add_edge(e)
     
@@ -87,14 +101,42 @@ class FlowGraph():
             for e in n.edge_out:
                 u = self.nodes[e.u].name
                 v = self.nodes[e.v].name
-                conds = [str(i.__class__.__name__) for i in e.conds]
-                ret += f"{u} -> {v} {conds}\n"
+                w = ', '.join([str(i) for i in e.w])
+                ret += f"{u} -> {v} [{w}]\n"
+        return ret
+
+    def c2id(self, col: Column) -> Tuple[int, str]:
+        return self.n2id[self.t2n[col.tname][-1]], col.cname
+
+    def w_from_conds(self, conds: List[Condition]) -> List[Weight]:
+        ret = []
+        for cond in conds:
+            readcol = cond.getread()
+            for col in readcol:
+                idx, cname = self.c2id(col)
+                ret.append(Weight(idx, cname, True, False, True))
+        if len(conds) > 0:
+            ret.append(Weight(None, None, False, False, True))
         return ret
     
-    def column2field(self, col: Column) -> str:
-        pass
-    
-    def backtrace(self, cond: Condition):
+    def w_from_update(self, assigns: List[Assignment]):
+        ret = []
+        for assign in assigns:
+            col = assign.lhs
+            assert(isinstance(col, Column))
+            idx, cname = self.c2id(col)
+            ret.append(Weight(idx, cname, False, True, False))
+            val = assign.rhs
+            
+            if isinstance(val, Column):
+                idx, cname = self.c2id(val)
+                ret.append(Weight(idx, cname, True, False, False))
+            elif isinstance(val, Expression):
+                reads = val.getread()
+                for read in reads:
+                    idx, cname = self.c2id(read)
+                    ret.append(Weight(idx, cname, True, False, False))           
+        return ret
         pass            
     
     def infer(self, proto: ProtoMessage) -> Tuple[List[str], List[str], bool]:
@@ -123,19 +165,21 @@ class FlowGraph():
                 v = e.v
                 if v not in visited:
                     q.append(v)
-                for cond in e.conds:
-                    if isinstance(cond, Condition):
-                        read_cols: List[Column] = cond.getread()
-                        for col in read_cols:
-                            # todo consider chorno order
-                            # the tid it refers to may not be the latest
-                            tid = self.n2id[self.t2n[col.tname][-1]]
-                            if tid in visited:
-                                proto_field = proto.from_name(col.cname)
-                                if proto_field is not None:
-                                    read.add(proto_field)
-                                else:
-                                    raise Exception(f"Field {col.cname} not in proto message!")
+                for w in e.w:        
+                    # todo consider chorno order
+                    # the tid it refers to may not be the latest
+                    tid = w.tid
+                    if tid is None:
+                        continue
+                    if tid in visited:
+                        proto_field = proto.from_name(w.cname)
+                        if proto_field is not None:
+                            if w.read:
+                                read.add(proto_field)
+                            if w.write:
+                                written.add(proto_field)
+                        else:
+                            raise Exception(f"Field {w.cname} not in proto message!")
         
         # drop                        
         visited = set()
@@ -148,8 +192,9 @@ class FlowGraph():
             node = self.nodes[u]
             for e in node.edge_out:
                 v = e.v
-                if len(e.conds) > 0:
-                    continue
+                flag = any([w.drop for w in e.w])
+                if flag == True:
+                    break                  
                 if v not in visited:
                     q.append(v)
         drop = output_id not in visited
@@ -229,7 +274,8 @@ class Scanner(Visitor):
             ctx.add_node(after_node)
             ctx.link(table_node, pre_node.name, [])
             ctx.link(join_table, pre_node.name, [])
-            ctx.link(pre_node.name, after_node.name, [node.join] if node.where is None else [node.join, node.where])
+            conds = [node.join] if node.where is None else [node.join, node.where]
+            ctx.link(pre_node.name, after_node.name, ctx.w_from_conds(conds))
             return after_node.name
         else:
             if node.where is not None:
@@ -239,7 +285,7 @@ class Scanner(Visitor):
             idx = next(ctx.gen)
             temp_node = Node(f"copy_{node.tname}_{idx}", idx, True)
             ctx.add_node(temp_node)
-            ctx.link(table_node, temp_node.name, conds)   
+            ctx.link(table_node, temp_node.name, ctx.w_from_conds(conds))   
         return temp_node.name 
     
     def visitInsert(self, node: Insert, ctx: FlowGraph) -> None:
@@ -259,15 +305,22 @@ class Scanner(Visitor):
         idx = next(ctx.gen)
         temp_node = Node(f"move_{node.tname}_{idx}", idx, True)
         ctx.add_node(temp_node)
-        ctx.link(table_node, temp_node.name, conds)
+        ctx.link(table_node, temp_node.name, ctx.w_from_conds(conds))
         return temp_node.name
 
     def visitReduce(self, node: Reduce, ctx: FlowGraph) -> str:
         raise NotImplementedError
             
-    def visitUpdate(self, node: Update, ctx: FlowGraph) -> str:
-        raise NotImplementedError
-    
+    def visitUpdate(self, node: Update, ctx: FlowGraph) -> None:
+        conds = []
+        ws = ctx.w_from_conds(conds) + ctx.w_from_update(node.assigns)
+        new, old = ctx.update_table(node.tname, "update")    
+        if node.where is not None:
+            conds.append(node.where)
+            
+        ctx.link(old, new, ws)
+        return;
+            
     def visitCondition(self, node: Condition, ctx: int):
         pass
     

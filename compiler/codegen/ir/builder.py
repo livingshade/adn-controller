@@ -21,6 +21,7 @@ def SQLType2IRType(sql_type: front.DataType) -> ir.DataType:
 class IRBuilder(SQLVisitor):
     def __init__(self):
         self.ctx = IRContext()
+        self.cur_table = []
 
     def visitRoot(self, node: List[front.Statement], ctx = None) -> ir.Root:
         ops = []
@@ -36,8 +37,13 @@ class IRBuilder(SQLVisitor):
         return ir.Root(ops)
 
     def visitColumnValue(self, node: front.ColumnValue, ctx = None) -> ir.Column:
-        return ir.Column(node.table_name, node.column_name, ir.DataType.UNKNOWN)
-
+        if node.table_name != "":
+            return ir.Column(node.table_name, node.column_name, ir.DataType.UNKNOWN)
+        elif len(self.cur_table) > 0:
+            return ir.Column(self.cur_table[-1].definition.name, node.column_name, ir.DataType.UNKNOWN)
+        else:
+            return ir.Column(None, node.column_name, ir.DataType.UNKNOWN)
+        
     def visitFunctionValue(self, node: front.FunctionValue, ctx = None) -> ir.FunctionCall:
         return ir.FunctionCall(ir.FunctionDefiniton(node.value, [], ir.DataType.UNKNOWN), [])
 
@@ -132,9 +138,11 @@ class IRBuilder(SQLVisitor):
         if self.ctx.table_map.get(table) is None:
             raise Exception(f"Table {table} does not exist")
         table = self.ctx.table_map[table]
+        self.cur_table.append(table)
         columns = node.columns
         copy = node.select_stmt.accept(self)
         assert(isinstance(copy, ir.Copy))
+        self.cur_table.pop()
         return ir.Insert(node.table_name, None, copy)
 
     def visitSelectStatement(self, node: front.SelectStatement, ctx = None) -> Union[ir.Copy, ir.Reduce]:
@@ -142,6 +150,7 @@ class IRBuilder(SQLVisitor):
         if self.ctx.table_map.get(table) is None:
             raise Exception(f"Table {table} does not exist")
         table = self.ctx.table_map[table]
+        self.cur_table.append(table)
         columns: List[ir.Column] = [c.accept(self) for c in node.columns]
         
         newtype = ir.StructType("GenCopy" + node.from_table, [(c.cname, c.dtype) for c in columns])
@@ -153,6 +162,7 @@ class IRBuilder(SQLVisitor):
         where_cond = node.where_clause.accept(self) if node.where_clause is not None else None
         limit = node.limit.accept(self) if node.limit is not None else None
 
+        self.cur_table.pop()
         if node.aggregator is not None:
             return ir.Reduce(node.from_table, node.aggregator.accept(self), newtype, join_cond, where_cond, limit)
         else:
@@ -163,6 +173,7 @@ class IRBuilder(SQLVisitor):
         if self.ctx.table_map.get(table) is None:
             raise Exception(f"Table {table} does not exist")
         table = self.ctx.table_map[table]
+        self.cur_table.append(table)
         
         columns = node.columns
         columns = [c.accept(self) for c in columns]
@@ -175,7 +186,8 @@ class IRBuilder(SQLVisitor):
                 li: ir.Literal = v.accept(self)
                 vs.append(li)
             svs.append(ir.StructValue(vs))
-
+        
+        self.cur_table.pop()
         return ir.Insert(node.table_name, svs)
    
     def visitDeleteStatement(self, node: front.DeleteStatement, ctx = None) -> ir.Move:
@@ -183,10 +195,25 @@ class IRBuilder(SQLVisitor):
         if self.ctx.table_map.get(table) is None:
             raise Exception(f"Table {table} does not exist")
         table = self.ctx.table_map[table]
+        self.cur_table.append(table)
         
         where = node.where_clause.accept(self) if node.where_clause is not None else None
         
+        self.cur_table.pop()
         return ir.Move(node.table_name, where)
+
+    def visitUpdateStatement(self, node: front.UpdateStatement, ctx = None) -> ir.Update:
+        table = node.table_name
+        if self.ctx.table_map.get(table) is None:
+            raise Exception(f"Table {table} does not exist")
+        table = self.ctx.table_map[table]
+        self.cur_table.append(table)
+        
+        assigns = [a.accept(self) for a in node.assigns]
+        where = node.where_clause.accept(self) if node.where_clause is not None else None
+        
+        self.cur_table.pop()
+        return ir.Update(node.table_name, assigns, where)
 
     def visitSetStatement(self, node: front.SetStatement, ctx = None) -> ir.Assignment:
         var = node.variable.accept(self)

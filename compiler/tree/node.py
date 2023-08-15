@@ -154,6 +154,13 @@ class DeleteStatement(Statement):
         self.table_name = table_name
         self.where_clause = where_clause
 
+class UpdateStatement(Statement):
+    def __init__(self, table_name: str, assigns: List[SetStatement] , where_clause: WhereClause):
+        super().__init__()
+        self.table_name = table_name
+        self.assigns = assigns
+        self.where_clause = where_clause
+
 
 class Operator(Enum):
     def __eq__(self, other: Operator):
@@ -246,7 +253,7 @@ class SelectStatement(Statement):
 
 
 class SetStatement(Statement):
-    def __init__(self, variable: VariableValue, expr: Expression):
+    def __init__(self, variable: Union[VariableValue, ColumnValue], expr: Expression):
         super().__init__()
         self.variable = variable
         self.expr = expr
@@ -263,7 +270,7 @@ class Expression(Value):
         self.rvalue = rvalue
         self.operator = operator
         self.value = None
-        assert self.lvalue.data_type == self.rvalue.data_type
+        #assert self.lvalue.data_type == self.rvalue.data_type
         self.data_type = self.lvalue.data_type
 
 

@@ -49,7 +49,7 @@ class IRPrinter(Visitor):
     def visitExpression(self, node: Expression, ctx: int) -> str:
         ret = f"({node.lhs.accept(self, ctx + 1)}" + '\n' + tab(ctx)
         ret += f"{node.op}" + '\n' + tab(ctx) 
-        ret += f"{node.lhs.accept(self, ctx + 1)}"
+        ret += f"{node.rhs.accept(self, ctx + 1)}"
         return ret + ")\n"
     
     def visitLogicalOp(self, node: LogicalOp, ctx: int) -> str:
@@ -128,14 +128,19 @@ class IRPrinter(Visitor):
         return ret + '\n'
             
     def visitUpdate(self, node: Update, ctx: int) -> str:
-        return f"Update: {node.table} {node.assignments}"
+        ret =  f"Update: {node.tname}\n"
+        for assign in node.assigns:
+            ret += tab(ctx)+  f"{assign.accept(self, ctx + 1)}\n"
+        if node.where is not None:
+            ret += tab(ctx) + "where: " + f"{node.where.accept(self, ctx + 1)}\n"
+        return ret
     
     def visitCondition(self, node: Condition, ctx: int) -> str:
         return f"Condition: {node.op}"
     
     def visitLogicalCondition(self, node: LogicalCondition, ctx: int) -> str:
         ret = f"LogicCond:\n" + tab(ctx)
-        t1 = node.lhs.accept(self, ctx + 1)
+        #t1 = node.lhs.accept(self, ctx + 1)
         ret += f"{node.lhs.accept(self, ctx + 1)}\n" + tab(ctx)
         ret += f"{node.op}" + '\n' + tab(ctx)
         ret += f"{node.rhs.accept(self, ctx + 1)}"

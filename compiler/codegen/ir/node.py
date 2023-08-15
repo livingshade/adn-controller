@@ -159,7 +159,19 @@ class Expression(SingleValue):
         self.lhs = lhs
         self.rhs = rhs
         self.op = op
+        self.read = []
+        if isinstance(self.lhs, Column):
+            self.read += [self.lhs]
+        elif isinstance(self.lhs, Expression):
+            self.read += self.lhs.read
+        if isinstance(self.rhs, Column):
+            self.read += [self.rhs]
+        elif isinstance(self.rhs, Expression):
+            self.read += self.rhs.read
         
+    def getread(self):
+        return self.read        
+
     def value(self):
         # return the value of the expression
         raise NotImplementedError

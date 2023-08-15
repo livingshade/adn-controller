@@ -2,20 +2,20 @@
 CREATE TABLE t1 (
   income INT,
   age INT,
-  deg VARCHAR(5),
+  deg VARCHAR(5)
 );
 
 CREATE TABLE t2 (
   income INT,
   age INT,
-  deg VARCHAR(5),
+  deg VARCHAR(5)
 );
 
-INSERT INTO t2 VALUES (100, 200, "bs")
+INSERT INTO t2 (income, age, deg) VALUES (100, 200, 'bs');
 
 --processing--
 
-INSERT INTO t1 SELECT * FROM input WHERE deg = "bs";
+INSERT INTO t1 SELECT * FROM input WHERE deg = 'bs';
 
 INSERT INTO output SELECT * FROM t1; 
 
