@@ -141,17 +141,17 @@ class FunctionDefiniton(IRNode):
         return f"{self.__class__.__name__}:{self.name} {self.params} -> {self.ret}"
 
 class FunctionCall(SingleValue):
-    def __init__(self, func: FunctionDefiniton, params: List[SingleValue]):
+    def __init__(self, func: FunctionDefiniton, args: List[SingleValue]):
         super().__init__()
         self.func = func
-        self.params = params
+        self.args = args
     
     def value(self):
         # return the return value of the function
         raise NotImplementedError
 
     def __str__(self):
-        return f"{self.__class__.__name__}:{self.func.name} {self.params}"
+        return f"{self.__class__.__name__}:{self.func.name} {self.args}"
 
 class Expression(SingleValue):
     def __init__(self, lhs: SingleValue, rhs: SingleValue, op: ArithmeticOp):
@@ -350,17 +350,13 @@ class Move(Operation):
         
 class Reduce(Operation, SingleValue):
     def __init__(self, table_name: str, reducer: Reducer, columns: StructType, join: JoinCondition = None, where: Condition = None, limit: Expression = None):
-        super.__init__()
+        super().__init__()
         self.tname = table_name
         self.reducer = reducer
         self.columns = columns
         self.join = join
         self.where = where
         self.limit = limit
-        
-    def value(self):
-        # return the value of the reducer
-        raise NotImplementedError
     
     def __str__(self):
         return f"{self.__class__.__name__}:{self.tname} {self.reducer} {self.columns} {self.join} {self.where} {self.limit}"

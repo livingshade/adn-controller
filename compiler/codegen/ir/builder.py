@@ -22,6 +22,11 @@ class IRBuilder(SQLVisitor):
     def __init__(self):
         self.ctx = IRContext()
         self.cur_table = []
+        self.funcs: Dict[str, ir.FunctionDefiniton] = {
+            "MIN": ir.FunctionDefiniton("MIN", [ir.DataType.UNKNOWN, ir.DataType.UNKNOWN], ir.DataType.UNKNOWN),
+            "CUR_TS": ir.FunctionDefiniton("CUR_TS", [], ir.DataType.FLOAT),
+            "TIME_DIFF": ir.FunctionDefiniton("TIME_DIFF", [ir.DataType.FLOAT, ir.DataType.FLOAT], ir.DataType.FLOAT),
+        }
 
     def visitRoot(self, node: List[front.Statement], ctx = None) -> ir.Root:
         ops = []
@@ -45,7 +50,12 @@ class IRBuilder(SQLVisitor):
             return ir.Column(None, node.column_name, ir.DataType.UNKNOWN)
         
     def visitFunctionValue(self, node: front.FunctionValue, ctx = None) -> ir.FunctionCall:
-        return ir.FunctionCall(ir.FunctionDefiniton(node.value, [], ir.DataType.UNKNOWN), [])
+        fname = node.value
+        if self.funcs.get(fname) is None:
+            raise Exception(f"Function {fname} not found")
+        func = self.funcs[fname]
+        
+        return ir.FunctionCall(func, [a.accept(self) for a in node.parameters])
 
     def visitVariableValue(self, node: front.VariableValue, ctx = None) -> ir.Var:
         return ir.Var(node.value, ir.DataType.UNKNOWN)

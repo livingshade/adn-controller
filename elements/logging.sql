@@ -1,3 +1,4 @@
+--init@hello.proto--
 -- Logging
 
 /*

@@ -280,12 +280,13 @@ class Scanner(Visitor):
         else:
             if node.where is not None:
                 conds.append(node.where)
+            ws = ctx.w_from_conds(conds)
             if node.limit is not None:
-                conds.append(node.limit)
+                ws = ws + [Weight(None, None, False, False, True)]                
             idx = next(ctx.gen)
             temp_node = Node(f"copy_{node.tname}_{idx}", idx, True)
             ctx.add_node(temp_node)
-            ctx.link(table_node, temp_node.name, ctx.w_from_conds(conds))   
+            ctx.link(table_node, temp_node.name, ws)   
         return temp_node.name 
     
     def visitInsert(self, node: Insert, ctx: FlowGraph) -> None:

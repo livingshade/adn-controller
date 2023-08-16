@@ -34,12 +34,12 @@ class IRPrinter(Visitor):
     def visitFunctionCall(self, node: FunctionCall, ctx: int) -> str:
         ret = f"Call: {node.func.name}" 
 
-        if len(node.params) == 0:
+        if len(node.args) == 0:
             ret += '()'
         else:
             ret += '('
-            for param in node.params:
-                ret += param.accept(self, ctx + 1) + ","
+            for arg in node.args:
+                ret += arg.accept(self, ctx + 1) + ","
             ret += ')'
         return ret
     

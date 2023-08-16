@@ -1,3 +1,5 @@
+--init@none--
+
 SET last_ts = CUR_TS();
 SET tokens = 5;
 SET token_per_sec = 5;

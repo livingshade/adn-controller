@@ -1,3 +1,5 @@
+--init@hello.proto--
+
 -- Access Control List
 
 /*

@@ -13,9 +13,10 @@ from compiler.codegen.finalizer import finalize_graph
 from compiler.config import ADN_ROOT, COMPILER_ROOT
 from compiler.frontend.printer import Printer as SQLPrinter
 from compiler.tree.visitor import *
+from compiler.protobuf import HelloProto, ExampleProtoMsg
 
-
-def preprocess(sql_file: str) -> Tuple[str, str]:
+def preprocess(sql_file: str) -> Tuple[str, str, str]:
+    proto_name = "none"
     with open(os.path.join(ADN_ROOT, f"elements/{sql_file}"), "r") as file:
         lines = file.readlines()
         for l in lines:
@@ -23,11 +24,11 @@ def preprocess(sql_file: str) -> Tuple[str, str]:
                 l = l.strip()
                 l = [i.strip("--") for i in l.split("@")]
                 proto_name = l[1]
-                print("proto_name:", proto_name)
     with open(os.path.join(ADN_ROOT, f"elements/{sql_file}"), "r") as file:
         sql_file_content = file.read()    
-    print(sql_file, ":")
-    print(sql_file_content)
+    #print(sql_file, ":")
+    #print(sql_file_content)
+    
     # Remove comments from the SQL file
     sql_file_content = re.sub(
         r"/\*.*?\*/", "", sql_file_content, flags=re.DOTALL
@@ -42,14 +43,14 @@ def preprocess(sql_file: str) -> Tuple[str, str]:
     ]  # Remove -- comments and split statements
     # Remove empty statements and leading/trailing whitespace
 
-    return sql_statements[0], sql_statements[1]
+    return sql_statements[0], sql_statements[1], proto_name
 
 
 def compile_single(engine: str, compiler: ADNCompiler, mrpc_dir: str, verbose: bool):
     os.system("rm -rf ./generated/")
     os.system("mkdir -p ./generated")
 
-    init, process = preprocess(f"{engine}.sql")
+    init, process, proto_name = preprocess(f"{engine}.sql")
 
     init, process = compiler.transform(init), compiler.transform(process)
 
@@ -103,7 +104,14 @@ if __name__ == "__main__":
     for engine in engine_name:
         name = f"gen_{engine}_{len(elem_name)}"
         elem_name.append(name)
-        elem = Element(name, preprocess(f"{engine}.sql"), HelloProto)
+        init, process, proto_name = preprocess(f"{engine}.sql")
+        if proto_name == "hello.proto":
+            protomsg = HelloProto.from_name("HelloRequest")
+        elif proto_name == "example.proto":
+            protomsg = ExampleProtoMsg
+        else:
+            protomsg = HelloProto.from_name("HelloRequest")
+        elem = Element(name, (init, process), protomsg)
         elems.append(elem)
 
     edges: List[Tuple[str, str]] = []
@@ -115,6 +123,7 @@ if __name__ == "__main__":
     printer = SQLPrinter()
 
     for elem in graph:
+        compiler.protomsg = elem.protomsg
         if args.output == "ast":
             print(elem.name, ":")
             init, process = elem.sql
@@ -145,7 +154,8 @@ if __name__ == "__main__":
             init, process = compiler.parse(init), compiler.parse(process)
             init = compiler.buildir(init)
             process = compiler.buildir(process)
-            compiler.analyze(process)
+            res = compiler.analyze(process)
+            print(res)
         else:
             print(elem.name, ":")
             compiler.compile(elem, mrpc_dir)
@@ -154,4 +164,4 @@ if __name__ == "__main__":
     #     ctx = graph.gen_toml()
     #     finalize_graph(ctx, mrpc_dir)
 
-    print("Done!")
+    print("All Done!")

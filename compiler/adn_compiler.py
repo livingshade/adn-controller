@@ -22,6 +22,15 @@ class ADNCompiler:
         self.transformer = ADNTransformer()
         self.builder = IRBuilder()
         self.generator = CodeGenerator()
+        self._protomsg = None
+
+    @property
+    def protomsg(self):
+        return self._protomsg
+    
+    @protomsg.setter
+    def protomsg(self, protomsg):
+        self._protomsg = protomsg
 
     def parse(self, sql):
         ast = self.parser.parse(sql)
@@ -36,16 +45,19 @@ class ADNCompiler:
         print(printer.visitRoot(root, 0))
         return root
     
-    def analyze(self, root: ir.Root):
+    def analyze(self, root: ir.Root) -> dict:
         irctx = self.builder.ctx
         scanner = Scanner(irctx.table_map)
         ctx = FlowGraph()
         root.accept(scanner, ctx)    
         rep = ctx.report()
         print(rep)
-        #read, write, drop = ctx.infer(HelloProto.from_name("HelloRequest"))
-        read, write, drop = ctx.infer(ExampleProtoMsg)
-        print(f"read: {read}, write: {write}, drop: {drop}")
+        read, write, drop = ctx.infer(self.protomsg)
+        return {
+            "read": read,
+            "write": write,
+            "drop": drop,
+        }
         
     def gen(self, sql, ctx: Context):
         return self.generator.visitRoot(sql, ctx)
