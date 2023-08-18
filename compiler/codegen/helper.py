@@ -1,4 +1,4 @@
-from backend.rusttype import *
+from backend.mrpc.rusttype import *
 from codegen.context import *
 
 

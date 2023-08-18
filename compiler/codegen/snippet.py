@@ -1,6 +1,6 @@
 from typing import Tuple
 
-from backend.rusttype import *
+from backend.mrpc.rusttype import *
 from codegen.context import *
 from codegen.helper import *
 
