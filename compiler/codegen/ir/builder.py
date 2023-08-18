@@ -3,7 +3,7 @@ import compiler.tree.node as front
 import compiler.codegen.ir.node as ir
 from compiler.protobuf import Proto
 from .context import IRContext
-from typing import List, Tuple, Union
+from typing import List, Tuple, Union, Dict
 
 
 def SQLType2IRType(sql_type: front.DataType) -> ir.DataType:
@@ -26,6 +26,7 @@ class IRBuilder(SQLVisitor):
             "MIN": ir.FunctionDefiniton("MIN", [ir.DataType.UNKNOWN, ir.DataType.UNKNOWN], ir.DataType.UNKNOWN),
             "CUR_TS": ir.FunctionDefiniton("CUR_TS", [], ir.DataType.FLOAT),
             "TIME_DIFF": ir.FunctionDefiniton("TIME_DIFF", [ir.DataType.FLOAT, ir.DataType.FLOAT], ir.DataType.FLOAT),
+            "RANDOM": ir.FunctionDefiniton("RANDOM", [], ir.DataType.FLOAT),
         }
 
     def visitRoot(self, node: List[front.Statement], ctx = None) -> ir.Root:

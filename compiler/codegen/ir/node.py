@@ -73,7 +73,7 @@ class CompareOp(EnumOP):
     LT = 3
     GE = 4
     LE = 5
-    NEQ = 6
+    NE = 6
     
     def __str__(self) -> str:
         return self.name

@@ -10,6 +10,7 @@ from .visitor import Visitor
 from .node import *
 from compiler.backend.mrpc import *
 from compiler.protobuf import ProtoMessage
+from collections import ChainMap
 
 # collection chainmap
 class RustGenerator(Visitor):
@@ -64,52 +65,102 @@ class RustGenerator(Visitor):
             func = ctx.f2rf[node.name]
             return f"{func.name}({','.join([a.accept(self, ctx) for a in node.args])})"
     
-    def visitAssignment(self, node: Assignment, ctx: RustContext):
-        pass
+    def visitAssignment(self, node: Assignment, ctx: RustContext) -> str:
+        return f"{node.lhs.accept(self, ctx)} = {node.rhs.accept(self, ctx)};";
     
     def visitExpression(self, node: Expression, ctx: RustContext):
-        pass
+        return f"{node.lhs.accept(self, ctx)} {node.op.accept(self, ctx)} {node.rhs.accept(self, ctx)}"
+    
     def visitLogicalOp(self, node: LogicalOp, ctx: RustContext):
-        pass
+        if node == LogicalOp.AND:
+            return "&&"
+        elif node == LogicalOp.OR:
+            return "||"
+        elif node == LogicalOp.NOT:
+            return "!"
+        else:
+            raise Exception("unknown logical operator")
+        
     def visitCompareOp(self, node: CompareOp, ctx: RustContext):
-        pass
+        if node == CompareOp.EQ:
+            return "=="
+        elif node == CompareOp.NE:
+            return "!="
+        elif node == CompareOp.GT:
+            return ">"
+        elif node == CompareOp.GE:
+            return ">="
+        elif node == CompareOp.LT:
+            return "<"
+        elif node == CompareOp.LE:
+            return "<=" 
+        else:
+            raise Exception("unknown compare operator")           
+        
     def visitArithmeticOp(self, node: ArithmeticOp, ctx: RustContext):
-        pass
+        if node == ArithmeticOp.ADD:
+            return "+"
+        elif node == ArithmeticOp.SUB:
+            return "-"
+        elif node == ArithmeticOp.MUL:
+            return "*"
+        elif node == ArithmeticOp.DIV:
+            return "/"
+    
     def visitReducer(self, node: Reducer, ctx: RustContext):
-        pass
+        raise NotImplementedError
+    
     def visitStructType(self, node: StructType, ctx: RustContext):
         pass
     
     def visitTableInstance(self, node: TableInstance, ctx: RustContext) -> str:
-        pass
+        name = node.definition.name
+        if ctx.t2rc.get(name) is None:
+            raise Exception(f"table {name} not defined")
+        else:
+            table = ctx.t2rc[name]
+            return f"{table.name}"
     
-    def visitTableDefinition(self, node: TableDefinition, ctx: RustContext):
-        pass
-    
+    def visitTableDefinition(self, node: TableDefinition, ctx: RustContext) -> None:
+        if ctx.t2rc.get(node.name) is None:
+            #todo
+            ctx.t2rc[node.name] = RustContainerType(node.name, [a.accept(self, ctx) for a in node.columns])
+        else:
+            raise Exception(f"table {node.name} already defined")
+        
     def visitOperation(self, node: Operation, ctx: RustContext):
-        pass
+        raise NotImplementedError
+    
     def visitCopy(self, node: Copy, ctx: RustContext):
         pass
+    
     def visitInsert(self, node: Insert, ctx: RustContext):
         pass
+    
     def visitMove(self, node: Move, ctx: RustContext):
         pass
+    
     def visitReduce(self, node: Reduce, ctx: RustContext):
         pass
+    
     def visitUpdate(self, node: Update, ctx: RustContext):
         pass
+    
     def visitCondition(self, node: Condition, ctx: RustContext):
-        pass
-    def visitLogicalCondition(self, node: LogicalCondition, ctx: RustContext):
-        pass
-    def visitAlgebraCondition(self, node: AlgebraCondition, ctx: RustContext):
-        pass
-    def visitJoinCondition(self, node: JoinCondition, ctx: RustContext):
-        pass
+        raise NotImplementedError
+    
+    def visitLogicalCondition(self, node: LogicalCondition, ctx: RustContext) -> str:
+        return f"{node.lhs.accept(self, ctx)} {node.op.accept(self, ctx)} {node.rhs.accept(self, ctx)}"
+    
+    def visitAlgebraCondition(self, node: AlgebraCondition, ctx: RustContext) -> str:
+        return f"{node.lhs.accept(self, ctx)} {node.op.accept(self, ctx)} {node.rhs.accept(self, ctx)}"
+    
+    def visitJoinCondition(self, node: JoinCondition, ctx: RustContext) -> str:
+        return f"{node.lhs.accept(self, ctx)} == {node.rhs.accept(self, ctx)}"
 
 class RustContext:
     def __init__(
-        self, tables: List[str], vars: List[Var], protomsg: ProtoMessage
+        self, tables: List[str], vars: List[Var], protomsg: ProtoMessage,
     ):
         self.t2rc: Dict[str, RustContainerType] = {};
         self.n2rv: Dict[str, RustVariable] = {};
@@ -122,6 +173,12 @@ class RustContext:
         self._rust_vars = {}
         self._temp_vars = {}
         self.protomsg = protomsg
+        
+        self.scope = ChainMap({
+            "ns": "",
+            "var": "",
+            "struct": "",  
+        })
         
     def empty(self) -> bool:
         return len(self._temp_code) == 0
