@@ -128,15 +128,13 @@ if __name__ == "__main__":
             print(elem.name, ":")
             init, process = elem.sql
             init, process = compiler.parse(init), compiler.parse(process)
-            printer.visitRoot(init)
-            printer.visitRoot(process)
+            printer.visitRoot((init, process))
         elif args.output == "ir":
             print(elem.name, ":")
             init, process = elem.sql
             init, process = compiler.parse(init), compiler.parse(process)
             ctx = init_ctx()
-            init = compiler.gen(init, ctx)
-            process = compiler.gen(process, ctx)
+            compiler.gen((init, process), ctx)
             ctx.explain()
             os.system("mkdir -p ./generated/ir")
             with open(
@@ -152,9 +150,8 @@ if __name__ == "__main__":
             print(elem.name, ":")
             init, process = elem.sql
             init, process = compiler.parse(init), compiler.parse(process)
-            init = compiler.buildir(init)
-            process = compiler.buildir(process)
-            res = compiler.analyze(process)
+            ir = compiler.buildir((init, process))
+            res = compiler.analyze(ir)
             print(res)
         else:
             print(elem.name, ":")

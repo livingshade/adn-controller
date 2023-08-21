@@ -4,7 +4,7 @@ import compiler.codegen.ir.node as ir
 from compiler.protobuf import Proto
 from .context import IRContext
 from typing import List, Tuple, Union, Dict
-
+from compiler.protobuf import ProtoMessage
 
 def SQLType2IRType(sql_type: front.DataType) -> ir.DataType:
     if sql_type.sql_type() == "VARCHAR":
@@ -19,7 +19,8 @@ def SQLType2IRType(sql_type: front.DataType) -> ir.DataType:
         raise ValueError("Unrecognized SQL type")
 
 class IRBuilder(SQLVisitor):
-    def __init__(self):
+    def __init__(self, proto: ProtoMessage):
+        self.proto = proto
         self.ctx = IRContext()
         self.cur_table = []
         self.funcs: Dict[str, ir.FunctionDefiniton] = {
@@ -29,18 +30,35 @@ class IRBuilder(SQLVisitor):
             "RANDOM": ir.FunctionDefiniton("RANDOM", [], ir.DataType.FLOAT),
         }
 
-    def visitRoot(self, node: List[front.Statement], ctx = None) -> ir.Root:
-        ops = []
-        for statement in node:
+    def visitRoot(self, node: Tuple[List[front.Statement], List[front.Statement]], ctx = None) -> ir.Root:
+        init_code, process_code = [], []
+        init, process = node
+        for statement in init:
             try:
                 # print("visitRoot", statement)
                 ret = statement.accept(self)
                 if ret is not None:
-                    ops.append(ret)
+                    init_code.append(ret)
             except Exception as e:
-                print("Error on ", statement)
+                print("Error on init:", statement)
                 raise e
-        return ir.Root(ops)
+            
+        for statement in process:
+            try:
+                # print("visitRoot", statement)
+                ret = statement.accept(self)
+                if ret is not None:
+                    process_code.append(ret)
+            except Exception as e:
+                print("Error on process:", statement)
+                raise e
+            
+        table_instances = list(self.ctx.table_map.values())
+        func_def = list(self.funcs.values())
+        defs = table_instances + func_def
+        
+        return ir.Root(self.proto, defs, init_code, process_code)
+    
 
     def visitColumnValue(self, node: front.ColumnValue, ctx = None) -> ir.Column:
         if node.table_name != "":

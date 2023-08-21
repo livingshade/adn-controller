@@ -1,13 +1,21 @@
 from typing import Callable, List, Protocol, Sequence, TypeVar
 from .visitor import Visitor, accept
 from .node import *
+
 class IRPrinter(Visitor):
     def __init__(self) -> None:
         pass
     
     def visitRoot(self, node: Root, ctx: int) -> str:
         ret = "Root:\n"
-        for ch in node.children:
+        ret += "  Def:\n"
+        for ch in node.definition:
+            ret += tab(ctx) + ch.accept(self, ctx + 1)
+        ret += "  Init:\n"
+        for ch in node.init:
+            ret += tab(ctx) + ch.accept(self, ctx + 1)
+        ret += "  Process:\n"
+        for ch in node.process:
             ret += tab(ctx) + ch.accept(self, ctx + 1)
         return ret
     
@@ -79,12 +87,12 @@ class IRPrinter(Visitor):
     def visitTableInstance(self, node: TableInstance, ctx: int) -> str:
         ret = f"TableInstance: {node.ctype}\n" + tab(ctx)       
         ret += f"{node.definition.accept(self, ctx + 1)}\n" + tab(ctx) 
-        for iv in node.initial_values:
+        for iv in node.initvals:
             ret += iv.accept(self, ctx + 1) + " "
         return ret
     
     def visitTableDefinition(self, node: TableDefinition, ctx: int) -> str:
-        ret = f"TableDefinition: {node.tname}\n" + tab(ctx)
+        ret = f"TableDefinition: {node.name}\n" + tab(ctx)
         ret += f"{node.schema.accept(self, ctx + 1)}\n"
     
     def visitOperation(self, node: Operation, ctx: int) -> str:

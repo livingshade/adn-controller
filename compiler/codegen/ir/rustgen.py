@@ -19,9 +19,32 @@ class RustGenerator(Visitor):
         raise Exception(f"visit function for {node.__class__.__name__} not implemented")
     
     def visitRoot(self, node: Root, ctx: RustContext):
-        for stmt in node.children:
-            print("visiting stmt: ", stmt)
-            stmt.accept(self, ctx)
+        
+        for decl in node.definition:
+            try:
+                code = decl.accept(self, ctx)
+            except Exception as e:
+                print("Error on def: ", e)
+                continue
+            ctx.def_code.append(code)
+            
+        for i in node.init:
+            try:
+                code = i.accept(self, ctx)
+            except Exception as e:
+                print("Error on init: ", e)
+                continue
+            ctx.init_code.append(code)
+            
+        for p in node.process:
+            try:
+                code = p.accept(self, ctx)
+            except Exception as e:
+                print("Error on process: ", e)
+                continue
+            ctx.process_code.append(code)
+            
+        return;
         
     def visitDataType(self, node: DataType, ctx: RustContext) -> RustBasicType:
         if node == DataType.INT:
@@ -132,10 +155,30 @@ class RustGenerator(Visitor):
         raise NotImplementedError
     
     def visitCopy(self, node: Copy, ctx: RustContext):
-        pass
+        tname = node.table.name
+        if ctx.t2rc.get(tname) is None:
+            raise Exception(f"table {tname} not defined")
+        tname = ctx.t2rc[tname].name
+        
+        print("Column: ", node.columns) 
+        raise NotImplementedError
     
-    def visitInsert(self, node: Insert, ctx: RustContext):
-        pass
+    def visitInsert(self, node: Insert, ctx: RustContext) -> str:
+        tname = node.table.name
+        if ctx.t2rc.get(tname) is None:
+            raise Exception(f"table {tname} not defined")
+        tname = ctx.t2rc[tname].name
+        
+        if node.select is not None:
+            select = node.select.accept(self, ctx)
+            code = f"for event in {select} {{\n"
+            code += f"{tname}.push(event);\n"
+            code += "}\n"
+        else:
+            code = ""
+            for vals in node.values:
+                code += f"{tname}.push({vals.accept(self, ctx)});\n"
+        return code
     
     def visitMove(self, node: Move, ctx: RustContext):
         pass
@@ -180,17 +223,6 @@ class RustContext:
             "struct": "",  
         })
         
-    def empty(self) -> bool:
-        return len(self._temp_code) == 0
-
-    def push_code(self, code: str):
-        self._temp_code.append(code)
-
-    def pop_code(self) -> str:
-        assert not self.empty()
-        return self._temp_code.pop()
-        self._temp_vars = value
-
     @property
     def def_code(self) -> List[str]:
         return self._def_code

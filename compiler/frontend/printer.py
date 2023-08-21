@@ -8,8 +8,13 @@ class Printer(Visitor):
     ctx: indent (width=4)
     """
 
-    def visitRoot(self, node: List[Statement], ctx: int = 0) -> None:
-        for statement in node:
+    def visitRoot(self, node: Tuple[List[Statement], List[Statement]], ctx: int = 0) -> None:
+        init, process = node
+        print("Init:")
+        for statement in init:
+            print(statement.accept(self, ctx))
+        print("Process:")
+        for statement in process:
             print(statement.accept(self, ctx))
 
     def visitValue(self, node: Value, ctx: int) -> str:

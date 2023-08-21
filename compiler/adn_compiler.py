@@ -14,14 +14,16 @@ from compiler.codegen.ir.printer import IRPrinter
 from compiler.codegen.ir.flow import Scanner, FlowGraph
 import compiler.codegen.ir.node as ir
 from compiler.protobuf import HelloProto, ExampleProtoMsg
+from compiler.codegen.ir.rustgen import RustGenerator, RustContext
 
 class ADNCompiler:
     def __init__(self, verbose=False):
         self.verbose = verbose
         self.parser = ADNParser()
         self.transformer = ADNTransformer()
-        self.builder = IRBuilder()
+        self.builder = None
         self.generator = CodeGenerator()
+        self.rustgen = None 
         self._protomsg = None
 
     @property
@@ -39,20 +41,20 @@ class ADNCompiler:
         return self.transformer.transform(ast)
 
     def buildir(self, sql) -> ir.Root:
+        self.builder = IRBuilder(self.protomsg)
         root = self.builder.visitRoot(sql)
         printer = IRPrinter()
-        ctx = self.builder.ctx
         print(printer.visitRoot(root, 0))
         return root
     
     def analyze(self, root: ir.Root) -> dict:
         irctx = self.builder.ctx
         scanner = Scanner(irctx.table_map)
-        ctx = FlowGraph()
+        ctx = FlowGraph(self.protomsg)
         root.accept(scanner, ctx)    
         rep = ctx.report()
         print(rep)
-        read, write, drop = ctx.infer(self.protomsg)
+        read, write, drop = ctx.infer()
         return {
             "read": read,
             "write": write,
@@ -62,6 +64,11 @@ class ADNCompiler:
     def gen(self, sql, ctx: Context):
         return self.generator.visitRoot(sql, ctx)
         # return visit_root(sql, ctx)
+        
+    def gen_rust(self, root: ir.Root):
+        ctx = RustContext()
+        self.rustgen = RustGenerator()
+        return self.rustgen.visitRoot(root, ctx)
 
     def finalize(self, engine: str, ctx: Context, output_dir: str):
         return finalize(engine, ctx, output_dir)

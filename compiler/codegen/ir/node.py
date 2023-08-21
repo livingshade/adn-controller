@@ -3,7 +3,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from enum import Enum
 from typing import List, Tuple, Union
-
+from compiler.protobuf import ProtoMessage
 class IRNode(ABC):
     def __init__(self):
         pass
@@ -362,15 +362,15 @@ class Reduce(Operation, SingleValue):
         return f"{self.__class__.__name__}:{self.tname} {self.reducer} {self.columns} {self.join} {self.where} {self.limit}"
 
 class Root(IRNode):
-    def __init__(self, children: List[Operation]):
+    def __init__(self, layout: ProtoMessage, definition: List[Union[TableInstance, FunctionDefiniton, Assignment]], init: List[Union[Operation, Assignment]], process: List[Union[Operation, Assignment]]):
         super().__init__()
-        self.children = children
-        
-    def __iter__(self):
-        return iter(self.children)
-    
+        self.layout = layout
+        self.definition = definition
+        self.init = init
+        self.process = process
+            
     def __str__(self):
-        return f"{self.__class__.__name__}:" + "".join(["\n\t" + str(c) for c in self.children])
+        return "Root"
 
 TypeRPC = StructType("RPC", [("meta", StructType("meta", [("src", DataType.STR), ("dst", DataType.STR), ("type", DataType.STR)])), ("payload", StructType("payload", [("data", DataType.STR)]))])
 

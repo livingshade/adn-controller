@@ -47,8 +47,17 @@ class CodeGenerator(Visitor):
         super().__init__()
         self.type_generator = RustTypeGenerator()
 
-    def visitRoot(self, node: List[Statement], ctx: Context) -> None:
-        for statement in node:
+    def visitRoot(self, node: Tuple[List[Statement], List[Statement]], ctx: Context) -> None:
+        init, process = node
+        for statement in init:
+            try:
+                # print("visitRoot", statement)
+                statement.accept(self, ctx)
+            except Exception as e:
+                print(statement)
+                raise e
+
+        for statement in process:
             try:
                 # print("visitRoot", statement)
                 statement.accept(self, ctx)

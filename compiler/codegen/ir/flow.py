@@ -48,11 +48,12 @@ def newnode() -> int:
         x = x + 1
 
 class FlowGraph():
-    def __init__(self) -> None:
+    def __init__(self, proto: ProtoMessage) -> None:
         self.gen = newnode()
         self.nodes: List[Node] = []
         self.n2id: dict[str, int] = {}
         self.t2n: dict[str, List[str]] = {}
+        self.proto: ProtoMessage = proto
         
     def has_node(self, name: str) -> bool:
         return name in self.n2id.keys()
@@ -139,7 +140,7 @@ class FlowGraph():
         return ret
         pass            
     
-    def infer(self, proto: ProtoMessage) -> Tuple[List[str], List[str], bool]:
+    def infer(self) -> Tuple[List[str], List[str], bool]:
         
         input_id = self.t2n["input"]
         assert(len(input_id) == 1)
@@ -172,7 +173,7 @@ class FlowGraph():
                     if tid is None:
                         continue
                     if tid in visited:
-                        proto_field = proto.from_name(w.cname)
+                        proto_field = self.proto.from_name(w.cname)
                         if proto_field is not None:
                             if w.read:
                                 read.add(proto_field)
@@ -209,10 +210,13 @@ class Scanner(Visitor):
         self.tables: Dict[str, TableInstance] = tables
         
     def visitRoot(self, node: Root, ctx: FlowGraph) -> None:
-        for t in self.tables.values():
-            t.accept(self, ctx)
+        for ch in node.definition:
+            ch.accept(self, ctx)
         
-        for ch in node.children:
+        for ch in node.init:
+            ch.accept(self, ctx)
+        
+        for ch in node.process:
             ch.accept(self, ctx)
     
     def visitDataType(self, node: DataType, ctx: FlowGraph) -> None:
