@@ -372,7 +372,7 @@ class Root(IRNode):
     def __str__(self):
         return "Root"
 
-TypeRPC = StructType("RPC", [("meta", StructType("meta", [("src", DataType.STR), ("dst", DataType.STR), ("type", DataType.STR)])), ("payload", StructType("payload", [("data", DataType.STR)]))])
+TypeRPC = StructType("RPC", [("meta_src", DataType.STR), ("meta_dst", DataType.STR), ("meta_type", DataType.STR), ("meta_size", DataType.INT), ("payload", DataType.UNKNOWN)])
 
 InputTable = TableInstance(TableDefinition("input", TypeRPC, "reserved"), ContainerType.STREAMING, [])
 

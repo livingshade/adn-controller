@@ -24,24 +24,24 @@ class RustGenerator(Visitor):
             try:
                 code = decl.accept(self, ctx)
             except Exception as e:
-                print("Error on def: ", e)
-                continue
+                print(f"Error on def: {decl}\n {e.__class__.__name__}{e}")
+                exit(1)
             ctx.def_code.append(code)
             
         for i in node.init:
             try:
                 code = i.accept(self, ctx)
             except Exception as e:
-                print("Error on init: ", e)
-                continue
+                print(f"Error on init: {i}\n {e.__class__.__name__}{e}")
+                exit(1)
             ctx.init_code.append(code)
             
         for p in node.process:
             try:
                 code = p.accept(self, ctx)
             except Exception as e:
-                print("Error on process: ", e)
-                continue
+                print(f"Error on process: {p}\n{e.__class__.__name__}{e}")
+                exit(1)
             ctx.process_code.append(code)
             
         return;
@@ -51,11 +51,13 @@ class RustGenerator(Visitor):
             return RustBasicType("i32")
         elif node == DataType.FLOAT:
             return RustBasicType("f32")
-        elif node == DataType.STRING:
+        elif node == DataType.STR:
             return RustBasicType("String")
         elif node == DataType.BOOL:
             return RustBasicType("bool")
         elif node == DataType.UNKNOWN:
+            return RustBasicType("Unknown")
+        else:
             raise Exception("unknown data type")
         
     def visitColumn(self, node: Column, ctx: RustContext):
@@ -77,7 +79,9 @@ class RustGenerator(Visitor):
     
     def visitFunctionDefiniton(self, node: FunctionDefiniton, ctx: RustContext)-> None:
         if ctx.f2rf.get(node.name) is None:
-            ctx.f2rf[node.name] = RustFunctionType(node.name, [a.accept(self, ctx) for a in node.args], node.ret.accept(self, ctx))
+            ret = node.ret.accept(self, ctx)
+            ctx.f2rf[node.name] = RustFunctionType(node.name, [p.accept(self, ctx) for p in node.params], ret, "builtin")
+            #todo function definition!
         else:
             raise Exception(f"function {node.name} already defined")
     
@@ -133,10 +137,11 @@ class RustGenerator(Visitor):
     def visitReducer(self, node: Reducer, ctx: RustContext):
         raise NotImplementedError
     
-    def visitStructType(self, node: StructType, ctx: RustContext):
-        pass
+    def visitStructType(self, node: StructType, ctx: RustContext) -> RustStructType:
+        return RustStructType(node.name, [n for (n, t) in node.fields])
     
     def visitTableInstance(self, node: TableInstance, ctx: RustContext) -> str:
+        node.definition.accept(self, ctx)
         name = node.definition.name
         if ctx.t2rc.get(name) is None:
             raise Exception(f"table {name} not defined")
@@ -146,25 +151,25 @@ class RustGenerator(Visitor):
     
     def visitTableDefinition(self, node: TableDefinition, ctx: RustContext) -> None:
         if ctx.t2rc.get(node.name) is None:
-            #todo
-            ctx.t2rc[node.name] = RustContainerType(node.name, [a.accept(self, ctx) for a in node.columns])
+            rust_type = node.schema.accept(self, ctx)
+            ctx.t2rc[node.name] = RustContainerType(node.name, rust_type)
         else:
             raise Exception(f"table {node.name} already defined")
         
     def visitOperation(self, node: Operation, ctx: RustContext):
         raise NotImplementedError
     
-    def visitCopy(self, node: Copy, ctx: RustContext):
-        tname = node.table.name
+    def visitCopy(self, node: Copy, ctx: RustContext) -> str:
+        tname = node.tname
         if ctx.t2rc.get(tname) is None:
             raise Exception(f"table {tname} not defined")
         tname = ctx.t2rc[tname].name
-        
+            
         print("Column: ", node.columns) 
         raise NotImplementedError
     
     def visitInsert(self, node: Insert, ctx: RustContext) -> str:
-        tname = node.table.name
+        tname = node.tname
         if ctx.t2rc.get(tname) is None:
             raise Exception(f"table {tname} not defined")
         tname = ctx.t2rc[tname].name
@@ -202,9 +207,7 @@ class RustGenerator(Visitor):
         return f"{node.lhs.accept(self, ctx)} == {node.rhs.accept(self, ctx)}"
 
 class RustContext:
-    def __init__(
-        self, tables: List[str], vars: List[Var], protomsg: ProtoMessage,
-    ):
+    def __init__(self):
         self.t2rc: Dict[str, RustContainerType] = {};
         self.n2rv: Dict[str, RustVariable] = {};
         self.f2rf: Dict[str, RustFunctionType] = {};
@@ -215,7 +218,6 @@ class RustContext:
         self._rust_cons = {}
         self._rust_vars = {}
         self._temp_vars = {}
-        self.protomsg = protomsg
         
         self.scope = ChainMap({
             "ns": "",

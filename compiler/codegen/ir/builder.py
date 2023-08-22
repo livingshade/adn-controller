@@ -56,7 +56,7 @@ class IRBuilder(SQLVisitor):
         table_instances = list(self.ctx.table_map.values())
         func_def = list(self.funcs.values())
         defs = table_instances + func_def
-        
+    
         return ir.Root(self.proto, defs, init_code, process_code)
     
 
@@ -181,6 +181,14 @@ class IRBuilder(SQLVisitor):
         table = self.ctx.table_map[table]
         self.cur_table.append(table)
         columns: List[ir.Column] = [c.accept(self) for c in node.columns]
+        
+        schema = table.definition.schema
+        
+        for c in columns:
+            for (n, t) in schema.fields:
+                if c.cname == n:
+                    c.dtype = t
+                    break
         
         newtype = ir.StructType("GenCopy" + node.from_table, [(c.cname, c.dtype) for c in columns])
         if len(node.columns) == 1 and node.columns[0] == front.Asterisk:

@@ -73,7 +73,6 @@ class ADNCompiler:
     def finalize(self, engine: str, ctx: Context, output_dir: str):
         return finalize(engine, ctx, output_dir)
 
-
     def compile(self, elem: Element, output_dir: str):
         init, process = elem.sql
         ctx: Context = init_ctx()
@@ -81,18 +80,11 @@ class ADNCompiler:
         init, process = self.parse(init), self.parse(process)
         # todo verbose
 
-        print("build ir init")
-        init = self.buildir(init)
+        print("build ir")
+        ir = self.buildir((init, process))
+                
+        res = self.analyze(ir)    
+        print("Ana result: ", res)
         
-        print("build ir process")
-        process = self.buildir(process) 
+        res = self.gen_rust(ir)   
         
-        self.analyze(process)       
-        # init = self.gen(init, ctx)
-        # while ctx.empty() is False:
-        #     ctx.init_code.append(ctx.pop_code())
-        # ctx.current = "process"
-        # process = self.gen(process, ctx)
-        # while ctx.empty() is False:
-        #     ctx.process_code.append(ctx.pop_code())
-        # return finalize(elem.name, ctx, output_dir)
